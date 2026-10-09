@@ -3,7 +3,6 @@
 use Illuminate\Http\JsonResponse;
 use RefactorCircus\ThriftToken\Domains\DomainServiceProvider;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Integration\IntegrationServiceProvider;
 use RefactorCircus\ThriftToken\ThriftTokenServiceProvider;
 
@@ -39,9 +38,9 @@ test('it accepts encoder options on JsonResponse toToon', function () {
         'a' => ['b' => ['c' => 1]],
     ]);
 
-    $result = $response->toToon(new EncoderOptions(keyFolding: KeyFolding::Safe));
+    $result = $response->toToon(new EncoderOptions(indentSize: 1));
 
-    expect($result)->toBe('a.b.c: 1');
+    expect($result)->toBe("a:\n b:\n  c: 1");
 });
 
 test('it encodes null JsonResponse data as empty object', function () {

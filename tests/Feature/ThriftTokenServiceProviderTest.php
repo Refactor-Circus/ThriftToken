@@ -3,7 +3,6 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Integration\Concerns\HasToon;
 use RefactorCircus\ThriftToken\ThriftToken;
 
@@ -58,11 +57,9 @@ it('accepts encoder options on collection', function () {
         'a' => ['b' => ['c' => 1]],
     ]);
 
-    $result = $collection->toToon(new EncoderOptions(
-        keyFolding: KeyFolding::Safe,
-    ));
+    $result = $collection->toToon(new EncoderOptions(indentSize: 1));
 
-    expect($result)->toBe('a.b.c: 1');
+    expect($result)->toBe("a:\n b:\n  c: 1");
 });
 
 it('converts a model to toon via HasToon trait', function () {

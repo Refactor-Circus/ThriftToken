@@ -2,322 +2,156 @@
 
 namespace RefactorCircus\ThriftToken\Domains\Decoding\Support;
 
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\Header;
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\HeaderField;
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
 use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 /**
- * Parses TOON array header lines like `key[N]{field1,field2}:`.
+ * Parses array and keyed headers per the grammar of spec §6.
  *
- * Extracts the key, length, delimiter, field list, and any inline values.
+ * Only lines whose first unquoted `[` precedes their first unquoted colon
+ * reach this parser (spec §5.2); every such line must match the grammar.
  */
-class HeaderParser
+final class HeaderParser
 {
+    private const string DELIMITERS = ",\t|";
+
     /**
-     * @return array{key: ?string, length: int, delimiter: Delimiter, fields: ?string[], inline: ?string}|null
+     * Whether a line's content is an array-header line (spec §5.2).
      */
-    public static function parse(string $line, ?int $lineNumber = null, bool $strict = false): ?array
+    public static function isHeader(string $content): bool
     {
-        $trimmed = trim($line);
+        $found = Scanner::first($content, '[:');
 
-        if ($trimmed === '') {
-            return null;
+        return $found[':'] !== null && $found['['] !== null && $found['['] < $found[':'];
+    }
+
+    public static function parse(string $content, ?int $line, bool $strict): Header
+    {
+        $open = (int) Scanner::first($content, '[')['['];
+        $rawKey = substr($content, 0, $open);
+
+        if ($rawKey !== '' && strspn(strrev($rawKey), " \t") > 0) {
+            throw new ToonDecodeException('Whitespace between a key and its bracket segment', $line);
         }
 
-        $pos = self::findBracketStart($trimmed);
+        $key = $rawKey === '' ? null : Scanner::key($rawKey, $line);
 
-        if ($pos === null) {
-            return null;
+        if (! preg_match('/\G\[(0|[1-9][0-9]*)(:?)(\t|\|)?\]/', $content, $match, 0, $open)) {
+            throw new ToonDecodeException('Malformed bracket segment in array header', $line);
         }
 
-        $key = $pos > 0 ? self::extractKey(substr($trimmed, 0, $pos), $lineNumber) : null;
-
-        $remaining = substr($trimmed, $pos);
-
-        $bracketEnd = strpos($remaining, ']');
-
-        if ($bracketEnd === false) {
-            return null;
-        }
-
-        $bracketContent = substr($remaining, 1, $bracketEnd - 1);
-        $parsed = self::parseBracket($bracketContent, $strict, $lineNumber);
-
-        if ($parsed === null) {
-            return null;
-        }
-
-        $remaining = substr($remaining, $bracketEnd + 1);
-
+        // No upper bound: a length beyond PHP_INT_MAX still forms a header,
+        // whose count is simply never met (spec §6).
+        $length = strlen($match[1]) > 18 ? PHP_INT_MAX : (int) $match[1];
+        $keyed = $match[2] === ':';
+        $delimiter = Delimiter::from(($match[3] ?? '') === '' ? ',' : $match[3]);
+        $position = $open + strlen($match[0]);
         $fields = null;
 
-        // A field list, when present, is the segment immediately after the
-        // bracket: `[N]{...}:`. Only treat a `{` as the field-list opener when it
-        // is the first non-space character after `]` — otherwise a `{` inside a
-        // later inline/quoted value would be mistaken for a field list.
-        if (str_starts_with(ltrim($remaining), '{')) {
-            $braceStart = strpos($remaining, '{');
-
-            // Scan for the closing brace outside of quotes, so a quoted field
-            // name containing `}` does not terminate the field list early.
-            $braceEnd = self::findUnquotedChar($remaining, '}', $braceStart + 1);
-
-            if ($braceEnd === false) {
-                return null;
-            }
-
-            $fieldsContent = substr($remaining, $braceStart + 1, $braceEnd - $braceStart - 1);
-            $fields = self::parseFields($fieldsContent, $parsed['delimiter'], $lineNumber, $strict);
-            $remaining = substr($remaining, $braceEnd + 1);
+        if (($content[$position] ?? '') === '{') {
+            [$fields, $position] = self::fields($content, $position, $delimiter, $line, $strict);
         }
 
-        $remaining = ltrim($remaining);
-
-        if (! str_starts_with($remaining, ':')) {
-            return null;
+        if (($content[$position] ?? '') !== ':') {
+            throw new ToonDecodeException('Array header must end with a colon', $line);
         }
 
-        $afterColon = substr($remaining, 1);
-        $inline = null;
-
-        if ($afterColon !== '') {
-            if (str_starts_with($afterColon, ' ')) {
-                $inline = substr($afterColon, 1);
-            } else {
-                $inline = $afterColon;
-            }
+        if ($keyed && $fields === null) {
+            throw new ToonDecodeException('A keyed header needs a field list', $line);
         }
 
-        return [
-            'key' => $key,
-            'length' => $parsed['length'],
-            'delimiter' => $parsed['delimiter'],
-            'fields' => $fields,
-            'inline' => $inline !== '' ? $inline : null,
-        ];
-    }
+        $rest = Scanner::trim(substr($content, $position + 1));
 
-    private static function findBracketStart(string $line): ?int
-    {
-        if ($line[0] === '[') {
-            return 0;
+        if ($fields !== null && $rest !== '') {
+            throw new ToonDecodeException('Unexpected content after a field list header', $line);
         }
 
-        $len = strlen($line);
-
-        for ($i = 0; $i < $len; $i++) {
-            $ch = $line[$i];
-
-            if ($ch === '"') {
-                // Skip the quoted span, honoring backslash escapes, so brackets
-                // inside quotes are not mistaken for the array start.
-                $closed = false;
-
-                for ($j = $i + 1; $j < $len; $j++) {
-                    if ($line[$j] === '\\') {
-                        $j++;
-
-                        continue;
-                    }
-
-                    if ($line[$j] === '"') {
-                        $i = $j;
-                        $closed = true;
-
-                        break;
-                    }
-                }
-
-                if (! $closed) {
-                    return null;
-                }
-
-                continue;
-            }
-
-            if ($ch === '[') {
-                return $i;
-            }
-        }
-
-        return null;
-    }
-
-    private static function extractKey(string $raw, ?int $lineNumber): string
-    {
-        $raw = trim($raw);
-
-        if (ValueDecoder::isQuoted($raw)) {
-            return self::markLiteralKey(ValueDecoder::decodeQuoted($raw, $lineNumber));
-        }
-
-        return $raw;
+        return new Header($key, $length, $keyed, $delimiter, $fields, $rest === '' ? null : $rest);
     }
 
     /**
-     * Mark a quoted dotted key as literal so path expansion leaves it untouched.
+     * Parse the field list opening at `$open`, returning its entries and the
+     * position after its closing brace.
+     *
+     * @return array{0: list<HeaderField>, 1: int}
      */
-    private static function markLiteralKey(string $key): string
+    private static function fields(string $content, int $open, Delimiter $delimiter, ?int $line, bool $strict): array
     {
-        return str_contains($key, '.') ? PathExpander::LITERAL_KEY_MARKER.$key : $key;
-    }
+        $fields = [];
+        $names = [];
+        $length = strlen($content);
+        $position = $open + 1;
 
-    /**
-     * @return array{length: int, delimiter: Delimiter}|null
-     */
-    private static function parseBracket(string $content, bool $strict = false, ?int $lineNumber = null): ?array
-    {
-        $delimiter = Delimiter::Comma;
+        while (true) {
+            $start = $position;
 
-        if (str_ends_with($content, "\t")) {
-            $delimiter = Delimiter::Tab;
-            $content = rtrim($content, "\t");
-        } elseif (str_ends_with($content, '|')) {
-            $delimiter = Delimiter::Pipe;
-            $content = rtrim($content, '|');
-        }
+            while ($position < $length) {
+                $char = $content[$position];
 
-        if (! preg_match('/^\d+$/D', $content)) {
-            return null;
-        }
-
-        if ($strict && strlen($content) > 1 && $content[0] === '0') {
-            throw new ToonStrictModeException("Malformed bracket length '$content': leading zeros not allowed", $lineNumber);
-        }
-
-        return [
-            'length' => (int) $content,
-            'delimiter' => $delimiter,
-        ];
-    }
-
-    /**
-     * @return string[]
-     */
-    private static function parseFields(string $content, Delimiter $delimiter, ?int $lineNumber, bool $strict = false): array
-    {
-        if ($strict && $delimiter !== Delimiter::Comma) {
-            $other = $delimiter === Delimiter::Pipe ? ',' : '|';
-            $unquoted = self::splitDelimited($content, Delimiter::Comma);
-            if (count($unquoted) > 1 || str_contains($content, $other)) {
-                // Check for unquoted occurrence of a different structural delimiter
-                $hasOther = false;
-                $inQ = false;
-                $cLen = strlen($content);
-                for ($i = 0; $i < $cLen; $i++) {
-                    if ($inQ && $content[$i] === '\\') {
-                        $i++;
-
-                        continue;
-                    }
-                    if ($content[$i] === '"') {
-                        $inQ = ! $inQ;
-
-                        continue;
-                    }
-                    if (! $inQ && $content[$i] === $other) {
-                        $hasOther = true;
-                        break;
-                    }
-                }
-                if ($hasOther) {
-                    throw new ToonStrictModeException('Header delimiter mismatch in field list', $lineNumber);
-                }
-            }
-        }
-
-        $parts = self::splitDelimited($content, $delimiter);
-
-        return array_map(function (string $field) use ($lineNumber) {
-            $field = trim($field);
-
-            if (ValueDecoder::isQuoted($field)) {
-                return self::markLiteralKey(ValueDecoder::decodeQuoted($field, $lineNumber));
-            }
-
-            return $field;
-        }, $parts);
-    }
-
-    /**
-     * @return string[]
-     */
-    /**
-     * Find the first occurrence of $char at or after $start that is not inside
-     * a double-quoted span (honoring backslash escapes).
-     */
-    private static function findUnquotedChar(string $text, string $char, int $start): int|false
-    {
-        $inQuotes = false;
-        $len = strlen($text);
-
-        for ($i = $start; $i < $len; $i++) {
-            $ch = $text[$i];
-
-            if ($ch === '"') {
-                $inQuotes = ! $inQuotes;
-
-                continue;
-            }
-
-            if ($inQuotes) {
-                if ($ch === '\\' && $i + 1 < $len) {
-                    $i++;
-                }
-
-                continue;
-            }
-
-            if ($ch === $char) {
-                return $i;
-            }
-        }
-
-        return false;
-    }
-
-    public static function splitDelimited(string $content, Delimiter $delimiter): array
-    {
-        $result = [];
-        $current = '';
-        $inQuotes = false;
-        $len = strlen($content);
-        $delimChar = $delimiter->value;
-
-        for ($i = 0; $i < $len; $i++) {
-            $ch = $content[$i];
-
-            if ($ch === '"') {
-                $inQuotes = ! $inQuotes;
-                $current .= $ch;
-
-                continue;
-            }
-
-            if ($inQuotes) {
-                if ($ch === '\\' && $i + 1 < $len) {
-                    $current .= $ch.$content[$i + 1];
-                    $i++;
+                if ($char === '"') {
+                    $position = (Scanner::closingQuote($content, $position) ?? $length) + 1;
 
                     continue;
                 }
 
-                $current .= $ch;
+                if ($char === '{' || $char === '}' || $char === $delimiter->value) {
+                    break;
+                }
+
+                if (str_contains(self::DELIMITERS, $char)) {
+                    throw new ToonDecodeException('Field list uses a delimiter other than the header\'s', $line);
+                }
+
+                $position++;
+            }
+
+            if ($position >= $length) {
+                throw new ToonDecodeException('Unmatched brace in field list', $line);
+            }
+
+            $raw = substr($content, $start, $position - $start);
+            $token = Scanner::trim($raw);
+
+            if ($token === '') {
+                throw new ToonDecodeException('Empty field entry in field list', $line);
+            }
+
+            $children = null;
+
+            if ($content[$position] === '{') {
+                if (strspn(strrev($raw), " \t") > 0) {
+                    throw new ToonDecodeException('Whitespace between a field name and its nested field group', $line);
+                }
+
+                [$children, $position] = self::fields($content, $position, $delimiter, $line, $strict);
+                $position += strspn($content, ' ', $position);
+            }
+
+            $name = Scanner::key($token, $line);
+
+            if (isset($names[$name]) && $strict) {
+                throw new ToonStrictModeException("Duplicate field name \"$name\" in field list", $line);
+            }
+
+            $names[$name] = true;
+            $fields[] = new HeaderField($name, $children);
+
+            $char = $content[$position] ?? '';
+
+            if ($char === $delimiter->value) {
+                $position++;
 
                 continue;
             }
 
-            if ($ch === $delimChar) {
-                $result[] = $current;
-                $current = '';
-
-                continue;
+            if ($char === '}') {
+                return [$fields, $position + 1];
             }
 
-            $current .= $ch;
+            throw new ToonDecodeException('Malformed field list', $line);
         }
-
-        $result[] = $current;
-
-        return $result;
     }
 }

@@ -17,29 +17,18 @@ This creates `config/thrift-token.php` in your application.
 return [
     'indent_size' => 2,
     'delimiter' => 'comma',
-    'key_folding' => 'off',
-    'flatten_depth' => INF,
     'strict' => true,
-    'expand_paths' => 'auto',
     'pao_output' => env('THRIFT_TOKEN_PAO_OUTPUT', false),
 ];
 ```
 
-### Encoding Options
+### Encoding and Decoding Options
 
 | Key | Default | Values | Description |
 |-----|---------|--------|-------------|
-| `indent_size` | `2` | Any positive integer | Spaces per indentation level |
-| `delimiter` | `'comma'` | `'comma'`, `'tab'`, `'pipe'` | Value separator in arrays |
-| `key_folding` | `'off'` | `'off'`, `'safe'` | Collapse single-key chains to dotted paths |
-| `flatten_depth` | `INF` | Any positive integer or `INF` | Max segments to fold when key folding is enabled |
-
-### Decoding Options
-
-| Key | Default | Values | Description |
-|-----|---------|--------|-------------|
-| `strict` | `true` | `true`, `false` | Enforce strict validation during decoding |
-| `expand_paths` | `'auto'` | `'off'`, `'safe'`, `'auto'` | Dotted key expansion strategy |
+| `indent_size` | `2` | Any positive integer | Spaces per indentation level, for encoding and decoding |
+| `delimiter` | `'comma'` | `'comma'`, `'tab'`, `'pipe'` | The document delimiter used when encoding |
+| `strict` | `true` | `true`, `false` | Whether decoding errors on every malformed input |
 
 ### PAO Integration
 

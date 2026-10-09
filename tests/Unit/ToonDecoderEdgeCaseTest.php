@@ -1,7 +1,7 @@
 <?php
 
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
-use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
 use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
 use RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder;
 
@@ -13,11 +13,11 @@ it('decodes blank lines between object keys', function () {
     expect($result)->toBe(['a' => 1, 'b' => 2]);
 });
 
-it('throws on trailing spaces in strict mode', function () {
+it('strips trailing spaces from every line', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: true));
 
-    $decoder->decode('name: Ada   ');
-})->throws(ToonStrictModeException::class);
+    expect($decoder->decode('name: Ada   '))->toBe(['name' => 'Ada']);
+});
 
 it('throws on tab indentation in strict mode', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: true));
@@ -33,19 +33,14 @@ it('decodes key with empty value after colon and space', function () {
     expect($result)->toEqual(['key' => new stdClass]);
 });
 
-it('skips lines without colon in non-strict mode', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(strict: false));
-
-    $result = $decoder->decode("name: Ada\nbadline\nrole: admin");
-
-    expect($result)->toBe(['name' => 'Ada', 'role' => 'admin']);
-});
-
-it('throws on missing colon in strict mode for object lines', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(strict: true));
+it('throws on an object line without a colon', function (bool $strict) {
+    $decoder = new ToonDecoder(new DecoderOptions(strict: $strict));
 
     $decoder->decode("name: Ada\nbadline\nrole: admin");
-})->throws(ToonStrictModeException::class);
+})->throws(ToonDecodeException::class, 'Expected a key and a colon')->with([
+    'strict' => [true],
+    'non-strict' => [false],
+]);
 
 it('decodes root list array with list items', function () {
     $decoder = new ToonDecoder;
@@ -90,22 +85,6 @@ it('decodes list item with object that has nested sub-object', function () {
     ]);
 });
 
-it('decodes with auto path expansion when no dotted keys exist', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Auto));
-
-    $result = $decoder->decode("name: Ada\nrole: admin");
-
-    expect($result)->toBe(['name' => 'Ada', 'role' => 'admin']);
-});
-
-it('decodes with auto path expansion when dotted keys exist', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Auto));
-
-    $result = $decoder->decode('user.name: Ada');
-
-    expect($result)->toBe(['user' => ['name' => 'Ada']]);
-});
-
 it('throws on list item count mismatch in strict mode', function () {
     $decoder = new ToonDecoder;
 
@@ -138,14 +117,6 @@ it('decodes only blank lines as empty object', function () {
     expect($decoder->decode("\n\n\n"))->toEqual(new stdClass);
 });
 
-it('detects indent from first indented line', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(indentSize: null));
-
-    $result = $decoder->decode("user:\n    id: 1\n    name: Ada");
-
-    expect($result)->toBe(['user' => ['id' => 1, 'name' => 'Ada']]);
-});
-
 it('decodes list item that is a plain value', function () {
     $decoder = new ToonDecoder;
 
@@ -154,27 +125,17 @@ it('decodes list item that is a plain value', function () {
     expect($result)->toBe(['hello', 42, true]);
 });
 
-it('decodes inline tabular with fields for single row', function () {
+it('rejects inline values after a tabular header', function () {
     $decoder = new ToonDecoder;
 
-    $result = $decoder->decode('items[2]{id,name}: 1,Ada');
-
-    expect($result)->toBe(['items' => [['id' => 1, 'name' => 'Ada']]]);
-});
-
-it('decodes nested dotted keys in child objects', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Auto));
-
-    $result = $decoder->decode("parent:\n  child.name: Ada\n  child.role: admin");
-
-    expect($result)->toBe(['parent' => ['child' => ['name' => 'Ada', 'role' => 'admin']]]);
-});
+    $decoder->decode('items[1]{id,name}: 1,Ada');
+})->throws(ToonDecodeException::class);
 
 it('throws on multiple non-kv root lines in strict mode', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: true));
 
     $decoder->decode("hello\nworld");
-})->throws(ToonStrictModeException::class);
+})->throws(ToonDecodeException::class);
 
 it('decodes root object with array header key', function () {
     $decoder = new ToonDecoder;
@@ -248,12 +209,4 @@ it('decodes object field with empty value after colon in list context', function
     $result = $decoder->decode($input);
 
     expect($result)->toEqual([['name' => 'Ada', 'items' => new stdClass]]);
-});
-
-it('decodes with path expansion off returns raw dotted keys', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Off));
-
-    $result = $decoder->decode("a.b: 1\na.c: 2");
-
-    expect($result)->toBe(['a.b' => 1, 'a.c' => 2]);
 });

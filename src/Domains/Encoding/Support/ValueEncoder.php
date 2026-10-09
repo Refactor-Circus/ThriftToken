@@ -5,17 +5,19 @@ namespace RefactorCircus\ThriftToken\Domains\Encoding\Support;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 /**
- * Encodes individual primitive values to TOON format.
+ * Encodes primitive values and keys.
  *
- * Handles quoting decisions per TOON spec section 7.2 and escaping per section 7.1.
- * Only five escape sequences are valid: \\, \", \n, \r, \t.
+ * Strings are quoted per spec §7.2 and escaped per §7.1; keys are quoted
+ * unless they match the unquoted-key pattern of §7.3.
  */
 class ValueEncoder
 {
     /**
-     * Encode a primitive value, applying quoting and escaping as needed.
+     * Encode a primitive, quoting strings against the document delimiter.
+     *
+     * @param  bool  $root  Whether the value is a root primitive, which quotes a leading U+FEFF.
      */
-    public static function encode(mixed $value, Delimiter $activeDelimiter, Delimiter $documentDelimiter, bool $isArrayContext = false): string
+    public static function encode(mixed $value, Delimiter $delimiter, bool $root = false): string
     {
         if ($value === null) {
             return 'null';
@@ -26,99 +28,56 @@ class ValueEncoder
         }
 
         if (is_int($value) || is_float($value)) {
-            $encoded = NumberEncoder::encode($value);
-
-            return $encoded ?? 'null';
+            return NumberEncoder::encode($value) ?? 'null';
         }
 
-        $str = (string) $value;
-        $delimiter = $isArrayContext ? $activeDelimiter : $documentDelimiter;
+        $string = (string) $value;
 
-        if (self::needsQuoting($str, $delimiter)) {
-            return self::quote($str);
-        }
-
-        return $str;
+        return self::needsQuoting($string, $delimiter, $root) ? self::quote($string) : $string;
     }
 
     /**
-     * Encode an object key, quoting only when it doesn't match the identifier pattern.
-     *
-     * Literal dotted keys are quoted so decoders never mistake them for
-     * folded key paths; only KeyFolder-produced paths are emitted unquoted.
+     * Encode an object key, entry key or field name (spec §7.3).
      */
     public static function encodeKey(string $key): string
     {
-        // The /D modifier is required so a trailing newline in the key does not
-        // satisfy `$` (PHP's default), which would leave a raw newline unquoted.
-        if (preg_match('/^[A-Za-z_][A-Za-z0-9_]*$/D', $key)) {
-            return $key;
-        }
-
-        return self::quote($key);
+        // /D keeps a trailing newline from satisfying `$`.
+        return preg_match('/^[A-Za-z_][A-Za-z0-9_.]*$/D', $key) ? $key : self::quote($key);
     }
 
-    public static function needsQuoting(string $value, Delimiter $delimiter): bool
+    public static function needsQuoting(string $value, Delimiter $delimiter, bool $root = false): bool
     {
-        if ($value === '') {
-            return true;
-        }
-
-        if (preg_match('/^\s|\s$/', $value)) {
-            return true;
-        }
-
-        if (in_array($value, ['true', 'false', 'null'], true)) {
-            return true;
-        }
-
-        if (preg_match('/^-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?$/D', $value)) {
-            return true;
-        }
-
-        if (preg_match('/^0\d+$/D', $value)) {
-            return true;
-        }
-
-        if (preg_match('/[:\\\\"\\[\\]{}]/', $value)) {
-            return true;
-        }
-
-        if (preg_match('/[\x00-\x1F\x7F]/', $value)) {
-            return true;
-        }
-
-        if (str_contains($value, $delimiter->value)) {
-            return true;
-        }
-
-        if ($value === '-' || str_starts_with($value, '-')) {
-            return true;
-        }
-
-        return false;
+        return $value === ''
+            || strspn($value, " \t") > 0
+            || strspn(strrev($value), " \t") > 0
+            || in_array($value, ['true', 'false', 'null'], true)
+            || preg_match('/^[+-]?[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?$/iD', $value) === 1
+            || strpbrk($value, ':"\\[]{}') !== false
+            || preg_match('/[\x00-\x1F]/', $value) === 1
+            || str_contains($value, $delimiter->value)
+            || $value[0] === '-'
+            || $value[0] === '#'
+            || ($root && str_starts_with($value, "\u{FEFF}"));
     }
 
+    /**
+     * Quote and escape a string (spec §7.1).
+     */
     public static function quote(string $value): string
     {
-        $result = '';
-        $len = strlen($value);
+        $escaped = preg_replace_callback(
+            '/[\x00-\x1F"\\\\]/',
+            fn (array $match): string => match ($match[0]) {
+                '\\' => '\\\\',
+                '"' => '\\"',
+                "\n" => '\\n',
+                "\r" => '\\r',
+                "\t" => '\\t',
+                default => sprintf('\\u%04x', ord($match[0])),
+            },
+            $value,
+        );
 
-        for ($i = 0; $i < $len; $i++) {
-            $ch = $value[$i];
-            $ord = ord($ch);
-
-            $result .= match (true) {
-                $ch === '\\' => '\\\\',
-                $ch === '"' => '\\"',
-                $ch === "\n" => '\\n',
-                $ch === "\r" => '\\r',
-                $ch === "\t" => '\\t',
-                $ord <= 0x1F || $ord === 0x7F => sprintf('\\u%04x', $ord),
-                default => $ch,
-            };
-        }
-
-        return '"'.$result.'"';
+        return '"'.$escaped.'"';
     }
 }

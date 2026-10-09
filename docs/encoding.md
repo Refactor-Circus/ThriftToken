@@ -20,21 +20,24 @@ $toon = ThriftToken::encode($data, new EncoderOptions(delimiter: Delimiter::Pipe
 
 ### `ThriftToken::compact($data)`
 
-Encodes with settings optimized for maximum token savings: 1-space indent and key folding enabled.
+Encodes with one space per indentation level, the smallest output for nested data.
 
 ```php
 $toon = ThriftToken::compact([
     'data' => ['meta' => ['items' => ['x', 'y']]],
 ]);
-// Output: data.meta.items[2]: x,y
+// Output:
+// data:
+//  meta:
+//   items[2]: x,y
 ```
 
 ### `ThriftToken::smart($data)`
 
-Automatically chooses compact or default encoding based on the data structure. Uses compact when it detects foldable nested chains or deep nesting (depth >= 4); uses default otherwise.
+Uses compact encoding for objects nested four or more levels deep, and default encoding otherwise.
 
 ```php
-$toon = ThriftToken::smart($data); // compact for foldable/deep data, default otherwise
+$toon = ThriftToken::smart($data); // compact for deeply nested data, default otherwise
 ```
 
 ## Encoder Options
@@ -47,27 +50,35 @@ use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 $options = new EncoderOptions(
     indentSize: 2,
     delimiter: Delimiter::Comma,
-    keyFolding: KeyFolding::Off,
-    flattenDepth: INF,
 );
 ```
 
 | Option | Default | Description |
 |--------|---------|-------------|
 | `indentSize` | `2` | Spaces per indentation level |
-| `delimiter` | `Comma` | Value separator: `Comma`, `Tab`, or `Pipe` |
-| `keyFolding` | `Off` | `Off` or `Safe`. When Safe, collapses single-key chains to dotted paths |
-| `flattenDepth` | `INF` | Max segments to fold when key folding is enabled |
+| `delimiter` | `Comma` | The document delimiter, declared in every header: `Comma`, `Tab`, or `Pipe` |
 
 ### Presets
 
 ```php
-EncoderOptions::compact(); // indentSize=1, keyFolding=Safe
+EncoderOptions::compact(); // indentSize=1
 ```
+
+## Forms
+
+The form of each value follows from its shape and position, as the spec requires; there is nothing to choose:
+
+- Arrays of scalars are inline: `tags[2]: a,b`.
+- Arrays of objects with the same keys, whose values are scalars or uniform objects, are tabular, with nested objects as nested field groups: `orders[2]{id,customer{name}}:`.
+- Objects of two or more uniform objects are keyed tabular: `users[2:]{age,city}:`.
+- Anything else is written as list items or nested fields.
 
 ## Type Normalization
 
 The encoder automatically normalizes common PHP types before encoding:
+
+- Lists stay arrays; associative arrays, `stdClass` and other objects become objects. Pass a `stdClass` to keep keys such as `"0"` and `"1"` an object rather than a list
+- Strings must be well-formed UTF-8; anything else throws `ToonEncodeException`
 
 - `DateTime` / `DateTimeImmutable` / `Carbon` instances are converted to ISO 8601 strings
 - Backed enums are converted to their value
@@ -75,7 +86,7 @@ The encoder automatically normalizes common PHP types before encoding:
 - Objects implementing `JsonSerializable` are serialized via `jsonSerialize()`
 - `Stringable` objects are cast to string
 - `Traversable` objects are iterated into arrays
-- Other objects are cast to arrays of their properties (an empty `stdClass` encodes as an empty object)
+- Other objects become objects of their public properties (an empty `stdClass` encodes as an empty object)
 - Non-finite floats (`NAN`, `INF`) become `null`, `-0.0` becomes `0`, and integral floats become integers
 
 ## Token Savings

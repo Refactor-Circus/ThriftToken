@@ -1,10 +1,8 @@
 <?php
 
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
-use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
 use RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
 use RefactorCircus\ThriftToken\ThriftToken;
 
@@ -111,36 +109,6 @@ it('roundtrips deeply nested structures', function () {
     ];
 
     expect(roundtrip($data))->toBe($data);
-});
-
-it('roundtrips with key folding and path expansion', function () {
-    $data = [
-        'a' => [
-            'b' => [
-                'c' => 1,
-            ],
-        ],
-    ];
-
-    $encOpts = new EncoderOptions(keyFolding: KeyFolding::Safe);
-    $decOpts = new DecoderOptions(expandPaths: PathExpansion::Safe);
-
-    expect(roundtrip($data, $encOpts, $decOpts))->toBe($data);
-});
-
-it('roundtrips folded arrays with path expansion', function () {
-    $data = [
-        'data' => [
-            'meta' => [
-                'items' => ['x', 'y'],
-            ],
-        ],
-    ];
-
-    $encOpts = new EncoderOptions(keyFolding: KeyFolding::Safe);
-    $decOpts = new DecoderOptions(expandPaths: PathExpansion::Safe);
-
-    expect(roundtrip($data, $encOpts, $decOpts))->toBe($data);
 });
 
 it('roundtrips an empty object', function () {
@@ -274,13 +242,4 @@ it('roundtrips a tabular field name containing a closing brace', function () {
     // field name containing `}` truncated the header. Now scanned quote-aware.
     expect(roundtrip(['items' => [['a}b' => 1, 'c' => 2]]]))
         ->toBe(['items' => [['a}b' => 1, 'c' => 2]]]);
-});
-
-it('expands a folded dotted key nested inside a list item', function () {
-    // Regression (Bug H): Auto path-expansion skipped dotted keys living inside
-    // list-item objects, so key folding was not symmetric there.
-    $data = ['items' => [['a' => ['b' => 1]]]];
-    $folded = new EncoderOptions(keyFolding: KeyFolding::Safe);
-
-    expect(roundtrip($data, $folded))->toBe($data);
 });

@@ -16,11 +16,11 @@ it('encodes simple object to toon string', function () {
 
 it('encodes nested data using smart encoding', function () {
     $response = new ToonToolResponse([
-        'a' => ['b' => ['c' => ['d' => 1]]],
+        'a' => ['b' => ['c' => ['d' => ['e' => 1]]]],
     ]);
 
-    // Smart should pick compact for deeply nested data
-    expect((string) $response)->toBe('a.b.c.d: 1');
+    // Smart picks compact indentation for deeply nested data
+    expect((string) $response)->toBe("a:\n b:\n  c:\n   d:\n    e: 1");
 });
 
 it('encodes flat data using default encoding', function () {

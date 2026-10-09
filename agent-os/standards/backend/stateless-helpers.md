@@ -2,8 +2,8 @@
 
 Split classes by state, not by role:
 
-- **Static-only** — pure, no config, no state: `ValueEncoder`, `NumberEncoder`, `ValueDecoder`, `HeaderParser`. All methods `static`.
-- **Instance** — holds options or parse position: `ToonEncoder`, `ToonDecoder`, `KeyFolder`, `PathExpander`.
+- **Static-only** — pure, no config, no state: `ValueEncoder`, `NumberEncoder`, `ValueDecoder`, `HeaderParser`, `Scanner`. All methods `static`.
+- **Instance** — holds options or parse position: `ToonEncoder`, `ToonDecoder`.
 
 Rules:
 - Static helpers NEVER store config. Pass `delimiter`, `strict`, `lineNum` as method args per call.
@@ -11,7 +11,7 @@ Rules:
 
 ```php
 // helper: config in, result out — no state
-ValueEncoder::encode($value, $activeDelimiter, $documentDelimiter, $isArrayContext);
+ValueEncoder::encode($value, $delimiter, root: true);
 
 // stateful: options in ctor, parse position in $this
 new ToonDecoder($options);

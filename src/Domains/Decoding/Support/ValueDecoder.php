@@ -2,171 +2,55 @@
 
 namespace RefactorCircus\ThriftToken\Domains\Decoding\Support;
 
-use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
-
 /**
- * Decodes individual TOON value tokens to PHP types.
+ * Decodes primitive value tokens (spec §4).
  *
- * Handles type inference for unquoted tokens (booleans, null, numbers, strings)
- * and unescape for quoted strings per TOON spec section 4 and 7.1.
+ * Quoted tokens are unescaped strings. Unquoted `true`, `false` and `null`
+ * are literals, a token matching the JSON number grammar is a number, and
+ * anything else is a string. Tokens with a fraction or exponent decode as
+ * floats. Integers beyond PHP's integer range decode as floats, and numbers
+ * beyond the float range as their string token, so no value is silently
+ * clamped.
  */
-class ValueDecoder
+final class ValueDecoder
 {
+    private const string NUMBER = '/^-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?$/D';
+
+    /**
+     * Decode a token that has already been trimmed of spaces.
+     */
     public static function decode(string $token, ?int $line = null): mixed
     {
-        $token = trim($token);
-
-        if ($token === '') {
-            return '';
+        if (str_starts_with($token, '"')) {
+            return Scanner::quoted($token, $line);
         }
 
-        if (self::isQuoted($token)) {
-            return self::decodeQuoted($token, $line);
-        }
-
-        if ($token === 'true') {
-            return true;
-        }
-
-        if ($token === 'false') {
-            return false;
-        }
-
-        if ($token === 'null') {
-            return null;
-        }
-
-        $numeric = self::tryParseNumber($token);
-
-        if ($numeric !== false) {
-            return $numeric;
-        }
-
-        return $token;
+        return match ($token) {
+            'true' => true,
+            'false' => false,
+            'null' => null,
+            default => preg_match(self::NUMBER, $token) ? self::number($token) : $token,
+        };
     }
 
-    public static function isQuoted(string $value): bool
+    private static function number(string $token): int|float|string
     {
-        return strlen($value) >= 2 && $value[0] === '"' && str_ends_with($value, '"');
-    }
+        if (strpbrk($token, '.eE') === false) {
+            $int = (int) $token;
 
-    public static function decodeQuoted(string $token, ?int $line = null): string
-    {
-        if (! self::isQuoted($token)) {
-            throw new ToonDecodeException('Expected quoted string', $line);
-        }
-
-        $inner = substr($token, 1, -1);
-        $result = '';
-        $len = strlen($inner);
-
-        for ($i = 0; $i < $len; $i++) {
-            if ($inner[$i] === '\\') {
-                if ($i + 1 >= $len) {
-                    throw new ToonDecodeException('Unterminated escape sequence', $line);
-                }
-
-                $next = $inner[$i + 1];
-                if ($next === 'u') {
-                    if ($i + 5 >= $len) {
-                        throw new ToonDecodeException('Invalid escape sequence: \\u requires 4 hex digits', $line);
-                    }
-                    $hex = substr($inner, $i + 2, 4);
-                    if (! preg_match('/^[0-9A-Fa-f]{4}$/', $hex)) {
-                        throw new ToonDecodeException('Invalid escape sequence: \\u requires 4 hex digits', $line);
-                    }
-                    $codepoint = hexdec($hex);
-                    if ($codepoint >= 0xDC00 && $codepoint <= 0xDFFF) {
-                        throw new ToonDecodeException('Invalid escape sequence: lone surrogate \\u'.strtoupper($hex), $line);
-                    }
-                    if ($codepoint >= 0xD800 && $codepoint <= 0xDBFF) {
-                        $low = self::parseLowSurrogate($inner, $i + 6, $hex, $line);
-                        $codepoint = 0x10000 + (($codepoint - 0xD800) << 10) + ($low - 0xDC00);
-                        $i += 6;
-                    }
-                    $result .= mb_chr($codepoint, 'UTF-8');
-                    $i += 5;
-                } else {
-                    $result .= match ($next) {
-                        '\\' => '\\',
-                        '"' => '"',
-                        'n' => "\n",
-                        'r' => "\r",
-                        't' => "\t",
-                        default => throw new ToonDecodeException("Invalid escape sequence: \\$next", $line),
-                    };
-                    $i++;
-                }
-            } elseif ($inner[$i] === '"') {
-                throw new ToonDecodeException('Unterminated string: unexpected quote', $line);
-            } else {
-                $result .= $inner[$i];
+            // `-0` is 0; an integer beyond PHP's range falls through to float.
+            if ((string) $int === $token || $token === '-0') {
+                return $int;
             }
         }
 
-        return $result;
-    }
+        $float = (float) $token;
 
-    /**
-     * Parse the low half of a UTF-16 surrogate pair starting at $offset.
-     *
-     * Throws when the high surrogate is not followed by a valid
-     * `\uDC00`-`\uDFFF` escape, since that leaves it a lone surrogate.
-     */
-    private static function parseLowSurrogate(string $inner, int $offset, string $highHex, ?int $line): int
-    {
-        if (substr($inner, $offset, 2) !== '\\u') {
-            throw new ToonDecodeException('Invalid escape sequence: lone surrogate \\u'.strtoupper($highHex), $line);
+        if (is_infinite($float)) {
+            return $token;
         }
 
-        $hex = substr($inner, $offset + 2, 4);
-
-        if (! preg_match('/^[0-9A-Fa-f]{4}$/', $hex)) {
-            throw new ToonDecodeException('Invalid escape sequence: lone surrogate \\u'.strtoupper($highHex), $line);
-        }
-
-        $codepoint = hexdec($hex);
-
-        if ($codepoint < 0xDC00 || $codepoint > 0xDFFF) {
-            throw new ToonDecodeException('Invalid escape sequence: lone surrogate \\u'.strtoupper($highHex), $line);
-        }
-
-        return $codepoint;
-    }
-
-    private static function tryParseNumber(string $token): int|float|false
-    {
-        if (preg_match('/^0\d+$/D', $token)) {
-            return false;
-        }
-
-        if (preg_match('/^-0\d+$/D', $token)) {
-            return false;
-        }
-
-        // /D anchors the end so a trailing newline cannot pass as a valid number.
-        if (! preg_match('/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/D', $token)) {
-            return false;
-        }
-
-        if (str_contains($token, '.') || str_contains($token, 'e') || str_contains($token, 'E')) {
-            $num = (float) $token;
-        } else {
-            $int = (int) $token;
-
-            // Fall back to float when the integer overflows PHP_INT_MAX, so the
-            // magnitude is preserved instead of silently clamping to the max int.
-            $num = ((string) $int === $token) ? $int : (float) $token;
-        }
-
-        if (is_int($num)) {
-            return $num;
-        }
-
-        if ($token === '-0') {
-            return 0;
-        }
-
-        return (float) $num;
+        // -0.0 is 0 (spec §2).
+        return $float == 0.0 ? 0.0 : $float;
     }
 }

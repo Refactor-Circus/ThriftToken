@@ -6,348 +6,381 @@ use BackedEnum;
 use DateTimeInterface;
 use JsonSerializable;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Encoding\Exceptions\ToonEncodeException;
+use stdClass;
 use Stringable;
 use Traversable;
 use UnitEnum;
 
 /**
- * Encodes PHP data structures to TOON format.
+ * Encodes PHP values as TOON (spec v4.4).
  *
- * Handles type normalization (DateTime, enums, JsonSerializable), tabular
- * detection for uniform object arrays, and all TOON array forms (inline,
- * tabular, mixed list, arrays of arrays).
+ * Values are first normalized to the JSON data model (spec §3): lists stay
+ * arrays, associative arrays and objects become objects, dates become ISO
+ * 8601 strings, enums their value or name, and JsonSerializable objects
+ * whatever they serialize to. The form of each value then follows from its
+ * shape and position alone (spec §9): inline, list, tabular or keyed tabular.
  */
 class ToonEncoder
 {
-    private Delimiter $documentDelimiter;
+    private string $delimiter;
 
-    private int $indent;
+    private string $symbol;
 
     public function __construct(
         private readonly EncoderOptions $options = new EncoderOptions,
     ) {
-        $this->documentDelimiter = $options->delimiter;
-        $this->indent = $options->indentSize;
+        $this->delimiter = $options->delimiter->value;
+        $this->symbol = $options->delimiter->headerSymbol();
     }
 
     public function encode(mixed $data): string
     {
-        $normalized = $this->normalize($data);
-
-        if ($this->options->keyFolding === KeyFolding::Safe) {
-            $folder = new KeyFolder($this->options->flattenDepth);
-            $normalized = $folder->fold($normalized);
-        }
-
-        return $this->encodeValue($normalized, 0, null);
+        return implode("\n", $this->root($this->normalize($data)));
     }
 
-    private function encodeValue(mixed $value, int $depth, ?string $key): string
+    /**
+     * @return list<string>
+     */
+    private function root(mixed $value): array
     {
-        if ($value === null || is_bool($value) || is_int($value) || is_float($value) || is_string($value)) {
-            return $this->encodePrimitive($value, $depth, $key, $this->documentDelimiter);
+        if (is_array($value)) {
+            return $value === [] ? ['[]'] : $this->array(null, $value, 0);
         }
 
-        if ($value instanceof \stdClass) {
-            if ($key !== null) {
-                return $this->prefix($depth).$this->encodeKeyStr($key).':';
-            }
-
-            return '';
+        if (! $value instanceof ObjectValue) {
+            return [$this->primitive($value, root: true)];
         }
 
-        if (! is_array($value)) {
-            throw new ToonEncodeException('Unsupported value type: '.get_debug_type($value));
+        // An empty root object is an empty document (spec §8).
+        if ($value->isEmpty()) {
+            return [];
         }
 
-        if ($value === []) {
-            if ($key !== null) {
-                return $this->prefix($depth).$this->encodeKeyStr($key).': []';
-            }
+        $fields = $this->keyedFields($value);
 
-            return '[]';
+        if ($fields !== null) {
+            return $this->keyed(null, $value, $fields, 0);
         }
 
-        if (array_is_list($value)) {
-            return $this->encodeArray($value, $depth, $key);
-        }
-
-        return $this->encodeObject($value, $depth, $key);
+        return $this->fields($value, 0);
     }
 
-    private function encodePrimitive(mixed $value, int $depth, ?string $key, Delimiter $activeDelimiter): string
+    /**
+     * Every field of an object, at `$depth`.
+     *
+     * @return list<string>
+     */
+    private function fields(ObjectValue $object, int $depth): array
     {
-        $encoded = ValueEncoder::encode($value, $activeDelimiter, $this->documentDelimiter);
-
-        if ($key !== null) {
-            return $this->prefix($depth).$this->encodeKeyStr($key).': '.$encoded;
-        }
-
-        return $this->prefix($depth).$encoded;
-    }
-
-    private function encodeObject(array $map, int $depth, ?string $key): string
-    {
-        if (empty($map)) {
-            if ($key !== null) {
-                return $this->prefix($depth).$this->encodeKeyStr($key).':';
-            }
-
-            return '';
-        }
-
         $lines = [];
 
-        if ($key !== null) {
-            $lines[] = $this->prefix($depth).$this->encodeKeyStr($key).':';
-            $depth++;
+        foreach ($object->entries as $key => $value) {
+            array_push($lines, ...$this->field((string) $key, $value, $depth));
         }
 
-        foreach ($map as $k => $v) {
-            $k = (string) $k;
-            $lines[] = $this->encodeValue($v, $depth, $k);
-        }
-
-        return implode("\n", $lines);
+        return $lines;
     }
 
-    private function encodeArray(array $items, int $depth, ?string $key): string
+    /**
+     * One field standing at `$depth`, with any content it opens at
+     * `$depth + 1` (spec §8).
+     *
+     * @return list<string>
+     */
+    private function field(string $key, mixed $value, int $depth): array
     {
-        $delimSymbol = $this->documentDelimiter->headerSymbol();
+        $key = ValueEncoder::encodeKey($key);
+        $indent = $this->indent($depth);
+
+        if (is_array($value)) {
+            return $value === [] ? ["$indent$key: []"] : $this->array($key, $value, $depth);
+        }
+
+        if (! $value instanceof ObjectValue) {
+            return ["$indent$key: ".$this->primitive($value)];
+        }
+
+        if ($value->isEmpty()) {
+            return ["$indent$key:"];
+        }
+
+        $fields = $this->keyedFields($value);
+
+        if ($fields !== null) {
+            return $this->keyed($key, $value, $fields, $depth);
+        }
+
+        return ["$indent$key:", ...$this->fields($value, $depth + 1)];
+    }
+
+    /**
+     * A non-empty array under an encoded key, or keyless at the root.
+     *
+     * @param  list<mixed>  $items
+     * @return list<string>
+     */
+    private function array(?string $key, array $items, int $depth): array
+    {
+        $header = $this->indent($depth).($key ?? '').'['.count($items).$this->symbol.']';
 
         if ($this->allPrimitive($items)) {
-            if ($this->allPrimitiveArrays($items)) {
-                return $this->encodeArrayOfArrays($items, $depth, $key, $delimSymbol);
+            return ["$header: ".$this->join($items)];
+        }
+
+        $fields = $this->tabularFields($items);
+
+        if ($fields !== null) {
+            $lines = [$header.'{'.$this->fieldList($fields).'}:'];
+
+            foreach ($items as $item) {
+                $lines[] = $this->indent($depth + 1).implode($this->delimiter, $this->cells($item, $fields));
             }
 
-            return $this->encodeInlinePrimitiveArray($items, $depth, $key, $delimSymbol);
+            return $lines;
         }
 
-        $tabularFields = $this->detectTabular($items);
-
-        if ($tabularFields !== null) {
-            return $this->encodeTabularArray($items, $depth, $key, $tabularFields, $delimSymbol);
-        }
-
-        return $this->encodeMixedArray($items, $depth, $key, $delimSymbol);
-    }
-
-    private function encodeInlinePrimitiveArray(array $items, int $depth, ?string $key, string $delimSymbol): string
-    {
-        $count = count($items);
-        $encoded = [];
+        $lines = ["$header:"];
 
         foreach ($items as $item) {
-            $encoded[] = ValueEncoder::encode($item, $this->documentDelimiter, $this->documentDelimiter, true);
+            array_push($lines, ...$this->listItem($item, $depth + 1));
         }
 
-        $header = '['.$count.$delimSymbol.']';
-        $values = implode($this->documentDelimiter->value, $encoded);
-
-        if ($key !== null) {
-            return $this->prefix($depth).$this->encodeKeyStr($key).$header.': '.$values;
-        }
-
-        return $this->prefix($depth).$header.': '.$values;
+        return $lines;
     }
 
-    private function encodeTabularArray(array $items, int $depth, ?string $key, array $fields, string $delimSymbol): string
+    /**
+     * A keyed tabular object (spec §9.5).
+     *
+     * @param  list<array{0: string, 1: array<mixed>|null}>  $fields
+     * @return list<string>
+     */
+    private function keyed(?string $key, ObjectValue $object, array $fields, int $depth): array
     {
-        $count = count($items);
-        $encodedFields = array_map(fn (string $f) => $this->encodeKeyStr($f), $fields);
-        $fieldList = implode($this->documentDelimiter->value, $encodedFields);
-        $header = '['.$count.$delimSymbol.']{'.$fieldList.'}:';
+        $lines = [$this->indent($depth).($key ?? '').'['.count($object->entries).':'.$this->symbol.']{'.$this->fieldList($fields).'}:'];
 
-        $lines = [];
-
-        if ($key !== null) {
-            $lines[] = $this->prefix($depth).$this->encodeKeyStr($key).$header;
-        } else {
-            $lines[] = $this->prefix($depth).$header;
+        foreach ($object->entries as $entryKey => $value) {
+            $lines[] = $this->indent($depth + 1).ValueEncoder::encodeKey((string) $entryKey).': '.implode($this->delimiter, $this->cells($value, $fields));
         }
 
-        foreach ($items as $item) {
-            $row = [];
-
-            foreach ($fields as $field) {
-                $row[] = ValueEncoder::encode($item[$field] ?? null, $this->documentDelimiter, $this->documentDelimiter, true);
-            }
-
-            $lines[] = $this->prefix($depth + 1).implode($this->documentDelimiter->value, $row);
-        }
-
-        return implode("\n", $lines);
+        return $lines;
     }
 
-    private function encodeArrayOfArrays(array $items, int $depth, ?string $key, string $delimSymbol): string
+    /**
+     * A list item whose hyphen stands at `$depth` (spec §9.4, §10).
+     *
+     * @return list<string>
+     */
+    private function listItem(mixed $item, int $depth): array
     {
-        $count = count($items);
-        $header = '['.$count.$delimSymbol.']:';
-        $lines = [];
+        $indent = $this->indent($depth);
 
-        if ($key !== null) {
-            $lines[] = $this->prefix($depth).$this->encodeKeyStr($key).$header;
-        } else {
-            $lines[] = $this->prefix($depth).$header;
-        }
+        if (is_array($item)) {
+            $header = $indent.'- ['.count($item).$this->symbol.']:';
 
-        foreach ($items as $item) {
-            $innerCount = count($item);
-            $encoded = [];
-
-            foreach ($item as $v) {
-                $encoded[] = ValueEncoder::encode($v, $this->documentDelimiter, $this->documentDelimiter, true);
-            }
-
-            $values = implode($this->documentDelimiter->value, $encoded);
-            $lines[] = $this->prefix($depth + 1).'- ['.$innerCount.$delimSymbol.']:'.($values === '' ? '' : ' '.$values);
-        }
-
-        return implode("\n", $lines);
-    }
-
-    private function encodeMixedArray(array $items, int $depth, ?string $key, string $delimSymbol): string
-    {
-        $count = count($items);
-        $header = '['.$count.$delimSymbol.']:';
-        $lines = [];
-
-        if ($key !== null) {
-            $lines[] = $this->prefix($depth).$this->encodeKeyStr($key).$header;
-        } else {
-            $lines[] = $this->prefix($depth).$header;
-        }
-
-        foreach ($items as $item) {
-            $lines[] = $this->encodeListItem($item, $depth + 1);
-        }
-
-        return implode("\n", $lines);
-    }
-
-    private function encodeListItem(mixed $item, int $depth): string
-    {
-        if ($item instanceof \stdClass) {
-            // Empty object as a list item: a bare dash, mirroring the empty-map
-            // branch of encodeObjectListItem (a non-empty stdClass is normalized
-            // to an array before reaching here).
-            return $this->prefix($depth).'-';
-        }
-
-        if (is_array($item) && ! array_is_list($item)) {
-            return $this->encodeObjectListItem($item, $depth);
-        }
-
-        if (is_array($item) && array_is_list($item)) {
             if ($this->allPrimitive($item)) {
-                $count = count($item);
-                $delimSymbol = $this->documentDelimiter->headerSymbol();
-                $encoded = [];
+                return [$item === [] ? $header : "$header ".$this->join($item)];
+            }
 
-                foreach ($item as $v) {
-                    $encoded[] = ValueEncoder::encode($v, $this->documentDelimiter, $this->documentDelimiter, true);
+            // Tabular form is not available here: a keyless field list is
+            // only valid at the root (spec §9.4).
+            $lines = [$header];
+
+            foreach ($item as $nested) {
+                array_push($lines, ...$this->listItem($nested, $depth + 1));
+            }
+
+            return $lines;
+        }
+
+        if (! $item instanceof ObjectValue) {
+            return ["$indent- ".$this->primitive($item)];
+        }
+
+        if ($item->isEmpty()) {
+            return ["$indent-"];
+        }
+
+        // The first field stands on the hyphen line at depth + 1, the rest
+        // of the fields below it at the same depth.
+        $lines = [];
+
+        foreach ($item->entries as $key => $value) {
+            array_push($lines, ...$this->field((string) $key, $value, $depth + 1));
+        }
+
+        $lines[0] = "$indent- ".substr($lines[0], strlen($this->indent($depth + 1)));
+
+        return $lines;
+    }
+
+    /**
+     * The field list of an array encodable in tabular form, or null.
+     *
+     * @param  list<mixed>  $items
+     * @return list<array{0: string, 1: array<mixed>|null}>|null
+     */
+    private function tabularFields(array $items): ?array
+    {
+        foreach ($items as $item) {
+            if (! $item instanceof ObjectValue || $item->isEmpty()) {
+                return null;
+            }
+        }
+
+        return $this->fieldTree($items);
+    }
+
+    /**
+     * The field list of an object encodable in keyed tabular form, or null.
+     *
+     * @return list<array{0: string, 1: array<mixed>|null}>|null
+     */
+    private function keyedFields(ObjectValue $object): ?array
+    {
+        if (count($object->entries) < 2) {
+            return null;
+        }
+
+        $values = array_values($object->entries);
+
+        foreach ($values as $value) {
+            if (! $value instanceof ObjectValue || $value->isEmpty()) {
+                return null;
+            }
+        }
+
+        return $this->fieldTree($values);
+    }
+
+    /**
+     * The shared field list of non-empty objects with one key set, where
+     * every column is uniform-primitive or nested-uniform (spec §9.3), in
+     * the first object's key order.
+     *
+     * @param  list<ObjectValue>  $objects
+     * @return list<array{0: string, 1: array<mixed>|null}>|null
+     */
+    private function fieldTree(array $objects): ?array
+    {
+        $keySet = $objects[0]->keySet();
+
+        foreach ($objects as $object) {
+            if ($object->keySet() !== $keySet) {
+                return null;
+            }
+        }
+
+        $tree = [];
+
+        foreach (array_keys($objects[0]->entries) as $key) {
+            $column = array_map(fn (ObjectValue $object): mixed => $object->entries[$key], $objects);
+
+            if ($this->allPrimitive($column)) {
+                $tree[] = [(string) $key, null];
+
+                continue;
+            }
+
+            foreach ($column as $value) {
+                if (! $value instanceof ObjectValue || $value->isEmpty()) {
+                    return null;
                 }
-
-                $values = implode($this->documentDelimiter->value, $encoded);
-
-                return $this->prefix($depth).'- ['.$count.$delimSymbol.']:'.($values === '' ? '' : ' '.$values);
             }
 
-            $count = count($item);
-            $delimSymbol = $this->documentDelimiter->headerSymbol();
-            $lines = [$this->prefix($depth).'- ['.$count.$delimSymbol.']:'];
+            $children = $this->fieldTree($column);
 
-            foreach ($item as $subItem) {
-                $lines[] = $this->encodeListItem($subItem, $depth + 1);
+            if ($children === null) {
+                return null;
             }
 
-            return implode("\n", $lines);
+            $tree[] = [(string) $key, $children];
         }
 
-        $encoded = ValueEncoder::encode($item, $this->documentDelimiter, $this->documentDelimiter);
-
-        return $this->prefix($depth).'- '.$encoded;
+        return $tree;
     }
 
-    private function encodeObjectListItem(array $map, int $depth): string
+    /**
+     * @param  list<array{0: string, 1: array<mixed>|null}>  $fields
+     */
+    private function fieldList(array $fields): string
     {
-        if (empty($map)) {
-            return $this->prefix($depth).'-';
-        }
+        return implode($this->delimiter, array_map(
+            fn (array $field): string => ValueEncoder::encodeKey($field[0]).($field[1] === null ? '' : '{'.$this->fieldList($field[1]).'}'),
+            $fields,
+        ));
+    }
 
-        $keys = array_keys($map);
-        $firstKey = (string) $keys[0];
-        $firstValue = $map[$firstKey];
+    /**
+     * An object's leaf values in depth-first order of the field list.
+     *
+     * @param  list<array{0: string, 1: array<mixed>|null}>  $fields
+     * @return list<string>
+     */
+    private function cells(ObjectValue $object, array $fields): array
+    {
+        $cells = [];
 
-        $tabularFields = null;
-        if (is_array($firstValue) && array_is_list($firstValue)) {
-            $tabularFields = $this->detectTabular($firstValue);
-        }
+        foreach ($fields as [$name, $children]) {
+            $value = $object->entries[$name];
 
-        if ($tabularFields !== null) {
-            return $this->encodeListItemWithTabularFirst($map, $depth, $firstKey, $firstValue, $tabularFields);
-        }
-
-        $lines = [];
-        $isFirst = true;
-
-        foreach ($map as $k => $v) {
-            $k = (string) $k;
-
-            if ($isFirst) {
-                $isFirst = false;
-
-                // Encode the first key at $depth + 1 so any continuation lines
-                // (nested objects or lists) land where the decoder expects them
-                // ($depth + 2), then splice the "- " marker into the first line.
-                $innerLines = explode("\n", $this->encodeValue($v, $depth + 1, $k));
-                $innerLines[0] = $this->prefix($depth).'- '.ltrim($innerLines[0]);
-                $lines[] = implode("\n", $innerLines);
+            if ($children === null) {
+                $cells[] = $this->primitive($value);
             } else {
-                $lines[] = $this->encodeValue($v, $depth + 1, $k);
+                /** @var ObjectValue $value */
+                array_push($cells, ...$this->cells($value, $children));
             }
         }
 
-        return implode("\n", $lines);
+        return $cells;
     }
 
-    private function encodeListItemWithTabularFirst(array $map, int $depth, string $firstKey, array $firstValue, array $tabularFields): string
+    /**
+     * @param  list<mixed>  $items
+     */
+    private function join(array $items): string
     {
-        $count = count($firstValue);
-        $delimSymbol = $this->documentDelimiter->headerSymbol();
-        $encodedFields = array_map(fn (string $f) => $this->encodeKeyStr($f), $tabularFields);
-        $fieldList = implode($this->documentDelimiter->value, $encodedFields);
-        $header = '['.$count.$delimSymbol.']{'.$fieldList.'}:';
-
-        $lines = [];
-        $lines[] = $this->prefix($depth).'- '.$this->encodeKeyStr($firstKey).$header;
-
-        foreach ($firstValue as $item) {
-            $row = [];
-
-            foreach ($tabularFields as $field) {
-                $row[] = ValueEncoder::encode($item[$field] ?? null, $this->documentDelimiter, $this->documentDelimiter, true);
-            }
-
-            $lines[] = $this->prefix($depth + 2).implode($this->documentDelimiter->value, $row);
-        }
-
-        $keys = array_keys($map);
-
-        for ($i = 1; $i < count($keys); $i++) {
-            $k = (string) $keys[$i];
-            $lines[] = $this->encodeValue($map[$k], $depth + 1, $k);
-        }
-
-        return implode("\n", $lines);
+        return implode($this->delimiter, array_map(fn (mixed $item): string => $this->primitive($item), $items));
     }
 
+    private function primitive(mixed $value, bool $root = false): string
+    {
+        return ValueEncoder::encode($value, $this->options->delimiter, $root);
+    }
+
+    /**
+     * @param  array<mixed>  $values
+     */
+    private function allPrimitive(array $values): bool
+    {
+        foreach ($values as $value) {
+            if (is_array($value) || $value instanceof ObjectValue) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private function indent(int $depth): string
+    {
+        return str_repeat(' ', $depth * $this->options->indentSize);
+    }
+
+    /**
+     * Normalize to the JSON data model (spec §3).
+     */
     private function normalize(mixed $value): mixed
     {
-        if ($value === null || is_bool($value) || is_int($value) || is_string($value)) {
+        if ($value === null || is_bool($value) || is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value)) {
+            if (preg_match('//u', $value) !== 1) {
+                throw new ToonEncodeException('Strings must be well-formed UTF-8');
+            }
+
             return $value;
         }
 
@@ -356,10 +389,7 @@ class ToonEncoder
                 return null;
             }
 
-            if ($value === -0.0 && fdiv(1.0, $value) === -INF) {
-                return 0;
-            }
-
+            // -0 becomes 0, and integral floats print as integers (spec §2).
             if (floor($value) === $value && abs($value) < PHP_INT_MAX) {
                 return (int) $value;
             }
@@ -367,8 +397,18 @@ class ToonEncoder
             return $value;
         }
 
+        if (is_array($value)) {
+            $normalized = array_map(fn (mixed $item): mixed => $this->normalize($item), $value);
+
+            return array_is_list($normalized) ? $normalized : new ObjectValue($normalized);
+        }
+
+        if ($value instanceof stdClass) {
+            return new ObjectValue(array_map(fn (mixed $item): mixed => $this->normalize($item), get_object_vars($value)));
+        }
+
         if ($value instanceof DateTimeInterface) {
-            return $value->format('c');
+            return $value->format(DateTimeInterface::ATOM);
         }
 
         if ($value instanceof BackedEnum) {
@@ -384,113 +424,17 @@ class ToonEncoder
         }
 
         if ($value instanceof Stringable) {
-            return (string) $value;
+            return $this->normalize((string) $value);
         }
 
         if ($value instanceof Traversable) {
-            return array_map(fn (mixed $v) => $this->normalize($v), iterator_to_array($value));
-        }
-
-        if (is_array($value)) {
-            return array_map(fn (mixed $v) => $this->normalize($v), $value);
-        }
-
-        if ($value instanceof \stdClass) {
-            $arr = (array) $value;
-
-            if (empty($arr)) {
-                return new \stdClass;
-            }
-
-            return $this->normalize($arr);
+            return $this->normalize(iterator_to_array($value));
         }
 
         if (is_object($value)) {
-            return $this->normalize((array) $value);
+            return new ObjectValue(array_map(fn (mixed $item): mixed => $this->normalize($item), get_object_vars($value)));
         }
 
         throw new ToonEncodeException('Cannot encode value of type: '.get_debug_type($value));
-    }
-
-    /**
-     * @return string[]|null Field names if tabular, null otherwise
-     */
-    private function detectTabular(array $items): ?array
-    {
-        if (empty($items)) {
-            return null;
-        }
-
-        $fields = null;
-
-        foreach ($items as $item) {
-            if (! is_array($item) || array_is_list($item)) {
-                return null;
-            }
-
-            foreach ($item as $v) {
-                if (is_array($v) || is_object($v)) {
-                    return null;
-                }
-            }
-
-            $keys = array_keys($item);
-            $keySet = $keys;
-            sort($keySet);
-
-            if ($fields === null) {
-                $fields = $keySet;
-            } elseif ($fields !== $keySet) {
-                return null;
-            }
-        }
-
-        $firstItem = $items[0];
-
-        return array_map('strval', array_keys($firstItem));
-    }
-
-    private function allPrimitive(array $items): bool
-    {
-        foreach ($items as $item) {
-            if (is_array($item) || is_object($item)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private function allPrimitiveArrays(array $items): bool
-    {
-        foreach ($items as $item) {
-            if (! is_array($item) || ! array_is_list($item)) {
-                return false;
-            }
-
-            if (! $this->allPrimitive($item)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private function prefix(int $depth): string
-    {
-        return str_repeat(' ', $depth * $this->indent);
-    }
-
-    /**
-     * Encode an object key, emitting KeyFolder-produced dotted paths unquoted
-     * while quoting everything else that needs it (including literal dotted keys).
-     */
-    private function encodeKeyStr(string $key): string
-    {
-        if ($this->options->keyFolding === KeyFolding::Safe && str_starts_with($key, KeyFolder::FOLDED_KEY_MARKER)) {
-            return substr($key, strlen(KeyFolder::FOLDED_KEY_MARKER));
-        }
-
-        return ValueEncoder::encodeKey($key);
     }
 }

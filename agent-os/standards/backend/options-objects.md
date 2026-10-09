@@ -2,8 +2,8 @@
 
 Tuning goes through `readonly` Options classes, not encode/decode method params:
 
-- `EncoderOptions` (indentSize, delimiter, keyFolding, flattenDepth)
-- `DecoderOptions` (strict, indentSize, expandPaths)
+- `EncoderOptions` (indentSize, delimiter)
+- `DecoderOptions` (strict, indentSize, associative)
 
 Why: immutable — safe to share/reuse without mutation bugs; new options don't break method signatures.
 

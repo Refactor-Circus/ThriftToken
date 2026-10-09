@@ -10,8 +10,8 @@ src/
 ├── Exceptions/ThriftTokenException.php   # base exception shared by every domain
 └── Domains/
     ├── DomainServiceProvider.php  # private $providers array, registered in a loop
-    ├── Encoding/   Data/EncoderOptions  Enums/{Delimiter,KeyFolding}  Exceptions/  Support/{ToonEncoder,ValueEncoder,KeyFolder,NumberEncoder}
-    ├── Decoding/   Data/DecoderOptions  Enums/PathExpansion  Exceptions/  Support/{ToonDecoder,ValueDecoder,HeaderParser,PathExpander}
+    ├── Encoding/   Data/EncoderOptions  Enums/Delimiter  Exceptions/  Support/{ToonEncoder,ValueEncoder,NumberEncoder,ObjectValue}
+    ├── Decoding/   Data/{DecoderOptions,Header,HeaderField}  Exceptions/  Support/{ToonDecoder,ValueDecoder,HeaderParser,Scanner,DecodedObject}
     └── Integration/
         ├── IntegrationServiceProvider.php   # toToon()/toon() macros
         ├── Concerns/HasToon.php

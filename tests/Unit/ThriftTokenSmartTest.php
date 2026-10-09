@@ -16,16 +16,6 @@ it('smart returns default for scalar input', function () {
     expect(ThriftToken::smart(42))->toBe('42');
 });
 
-it('smart picks compact for foldable single-key chains', function () {
-    // A structure with a single-key assoc containing another single-key assoc
-    $data = ['wrapper' => ['inner' => ['value' => 42]]];
-
-    $result = ThriftToken::smart($data);
-
-    // Should use compact (key folding) since it has foldable structure
-    expect($result)->toBe('wrapper.inner.value: 42');
-});
-
 it('smart picks default for assoc with no depth or foldable keys', function () {
     $data = ['a' => 1, 'b' => 2, 'c' => 3];
 

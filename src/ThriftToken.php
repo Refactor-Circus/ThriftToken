@@ -4,11 +4,9 @@ namespace RefactorCircus\ThriftToken;
 
 use Illuminate\Container\Container;
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
-use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
 use RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
 
 /**
@@ -35,7 +33,7 @@ class ThriftToken
     }
 
     /**
-     * Encode data using compact settings (indent=1, key folding enabled).
+     * Encode data with one space per indentation level.
      */
     public static function compact(mixed $data): string
     {
@@ -43,65 +41,42 @@ class ThriftToken
     }
 
     /**
-     * Encode data, automatically choosing compact or default for the smallest output.
+     * Encode data, choosing compact indentation for deeply nested objects,
+     * where it saves the most.
      */
     public static function smart(mixed $data): string
     {
-        return self::shouldUseCompact($data)
+        return is_array($data) && ! array_is_list($data) && self::depth($data) >= 4
             ? static::compact($data)
             : static::encode($data);
     }
 
-    private static function shouldUseCompact(mixed $data): bool
+    /**
+     * How deeply objects nest inside an object.
+     *
+     * @param  array<array-key, mixed>  $data
+     */
+    private static function depth(array $data): int
     {
-        if (! is_array($data) || array_is_list($data)) {
-            return false;
-        }
-
-        $maxDepth = 0;
-        $hasFoldable = false;
-
-        self::inspectStructure($data, 0, $maxDepth, $hasFoldable);
-
-        return $hasFoldable || $maxDepth >= 4;
-    }
-
-    private static function inspectStructure(array $data, int $depth, int &$maxDepth, bool &$hasFoldable): void
-    {
-        if ($hasFoldable) {
-            return;
-        }
-
-        $maxDepth = max($maxDepth, $depth);
+        $depth = 0;
 
         foreach ($data as $value) {
-            if (! is_array($value) || array_is_list($value)) {
-                continue;
+            if (is_array($value) && ! array_is_list($value)) {
+                $depth = max($depth, 1 + self::depth($value));
             }
-
-            if (count($value) === 1) {
-                $inner = reset($value);
-
-                if (is_array($inner) && ! array_is_list($inner)) {
-                    $hasFoldable = true;
-
-                    return;
-                }
-            }
-
-            self::inspectStructure($value, $depth + 1, $maxDepth, $hasFoldable);
         }
+
+        return $depth;
     }
 
     /**
      * Decode a TOON string back to PHP data.
      *
-     * Auto-detects indent size and expands dotted keys by default. When no
-     * options are given, defaults are read from the `thrift-token` config inside
-     * Laravel and fall back to the package defaults elsewhere.
+     * When no options are given, defaults are read from the `thrift-token`
+     * config inside Laravel and fall back to the package defaults elsewhere.
      *
-     * An empty string decodes to an empty array. Note that a root-level empty
-     * object encodes to an empty string, so it decodes back as `[]`.
+     * An empty document decodes to an empty object (a stdClass), which is
+     * what an empty root object encodes to.
      */
     public static function decode(string $toon, ?DecoderOptions $options = null): mixed
     {
@@ -137,7 +112,7 @@ class ThriftToken
     }
 
     /**
-     * Build encoder defaults from the Laravel `toon` config when available.
+     * Build encoder defaults from the Laravel `thrift-token` config when available.
      */
     private static function defaultEncoderOptions(): EncoderOptions
     {
@@ -147,18 +122,14 @@ class ThriftToken
             return new EncoderOptions;
         }
 
-        $flattenDepth = $config['flatten_depth'] ?? INF;
-
         return new EncoderOptions(
             indentSize: (int) ($config['indent_size'] ?? 2),
             delimiter: Delimiter::fromName((string) ($config['delimiter'] ?? 'comma')),
-            keyFolding: KeyFolding::from((string) ($config['key_folding'] ?? 'off')),
-            flattenDepth: is_int($flattenDepth) ? $flattenDepth : (float) $flattenDepth,
         );
     }
 
     /**
-     * Build decoder defaults from the Laravel `toon` config when available.
+     * Build decoder defaults from the Laravel `thrift-token` config when available.
      */
     private static function defaultDecoderOptions(): DecoderOptions
     {
@@ -170,7 +141,7 @@ class ThriftToken
 
         return new DecoderOptions(
             strict: (bool) ($config['strict'] ?? true),
-            expandPaths: PathExpansion::from((string) ($config['expand_paths'] ?? 'auto')),
+            indentSize: (int) ($config['indent_size'] ?? 2),
         );
     }
 

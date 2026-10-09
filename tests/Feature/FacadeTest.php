@@ -17,13 +17,13 @@ test('it decodes data via facade', function () {
 test('it compacts data via facade', function () {
     $result = ThriftToken::compact(['parent' => ['child' => 'value']]);
 
-    expect($result)->toBe('parent.child: value');
+    expect($result)->toBe("parent:\n child: value");
 });
 
 test('it smart encodes via facade', function () {
-    $result = ThriftToken::smart(['a' => ['b' => ['c' => ['d' => 1]]]]);
+    $result = ThriftToken::smart(['a' => ['b' => ['c' => ['d' => ['e' => 1]]]]]);
 
-    expect($result)->toBe('a.b.c.d: 1');
+    expect($result)->toBe("a:\n b:\n  c:\n   d:\n    e: 1");
 });
 
 test('it calculates savings via facade', function () {

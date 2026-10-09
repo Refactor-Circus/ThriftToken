@@ -3,36 +3,28 @@
 namespace RefactorCircus\ThriftToken\Domains\Encoding\Data;
 
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 
 /**
  * Configuration options for the TOON encoder.
  *
- * @see EncoderOptions::compact() for a preset optimized for maximum token savings.
+ * @see EncoderOptions::compact() for a preset with the smallest indentation.
  */
 readonly class EncoderOptions
 {
     /**
      * @param  int  $indentSize  Spaces per indentation level (default 2).
-     * @param  Delimiter  $delimiter  Delimiter for array values and tabular rows.
-     * @param  KeyFolding  $keyFolding  Whether to collapse single-key chains into dotted paths.
-     * @param  int|float  $flattenDepth  Maximum segments to fold (default INF for unlimited).
+     * @param  Delimiter  $delimiter  The document delimiter, used by every header, inline array and row.
      */
     public function __construct(
         public int $indentSize = 2,
         public Delimiter $delimiter = Delimiter::Comma,
-        public KeyFolding $keyFolding = KeyFolding::Off,
-        public int|float $flattenDepth = INF,
     ) {}
 
     /**
-     * Preset optimized for maximum token savings (indent=1, key folding enabled).
+     * Preset with one space per indentation level.
      */
     public static function compact(): self
     {
-        return new self(
-            indentSize: 1,
-            keyFolding: KeyFolding::Safe,
-        );
+        return new self(indentSize: 1);
     }
 }

@@ -1,7 +1,6 @@
 <?php
 
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
-use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
 use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
 use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
 use RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder;
@@ -175,66 +174,12 @@ it('preserves key order', function () {
     expect(array_keys($result))->toBe(['z', 'a', 'm']);
 });
 
-it('decodes with path expansion', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Safe));
-
-    $result = $decoder->decode("a.b.c: 1\na.b.d: 2\na.e: 3");
-
-    expect($result)->toBe(['a' => ['b' => ['c' => 1, 'd' => 2], 'e' => 3]]);
-});
-
-it('decodes with path expansion on arrays', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Safe));
-
-    $result = $decoder->decode('data.meta.items[2]: a,b');
-
-    expect($result)->toBe(['data' => ['meta' => ['items' => ['a', 'b']]]]);
-});
-
-it('does not expand paths when off', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Off));
-
-    $result = $decoder->decode('user.name: Ada');
-
-    expect($result)->toBe(['user.name' => 'Ada']);
-});
-
-it('auto-expands dotted keys by default', function () {
-    $decoder = new ToonDecoder;
-
-    $result = $decoder->decode('user.name: Ada');
-
-    expect($result)->toBe(['user' => ['name' => 'Ada']]);
-});
-
 it('auto skips expansion when no dotted keys', function () {
     $decoder = new ToonDecoder;
 
     $result = $decoder->decode("name: Ada\nrole: admin");
 
     expect($result)->toBe(['name' => 'Ada', 'role' => 'admin']);
-});
-
-it('auto-detects indent size', function () {
-    $decoder = new ToonDecoder;
-
-    $result = $decoder->decode("user:\n child: value");
-
-    expect($result)->toBe(['user' => ['child' => 'value']]);
-});
-
-it('throws on expansion conflict in strict mode', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Safe));
-
-    $decoder->decode("a.b: 1\na: 2");
-})->throws(ToonStrictModeException::class);
-
-it('applies LWW on expansion conflict in non-strict mode', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(strict: false, expandPaths: PathExpansion::Safe));
-
-    $result = $decoder->decode("a.b: 1\na: 2");
-
-    expect($result)->toBe(['a' => 2]);
 });
 
 // Strict mode error tests
@@ -255,7 +200,13 @@ it('throws on tabular row width mismatch', function () {
     $decoder = new ToonDecoder;
 
     $decoder->decode("items[1]{id,name}:\n  1,Alice,extra");
-})->throws(ToonStrictModeException::class);
+})->throws(ToonDecodeException::class, 'Row has 3 values');
+
+it('throws on tabular row width mismatch in non-strict mode too', function () {
+    $decoder = new ToonDecoder(new DecoderOptions(strict: false));
+
+    $decoder->decode("items[1]{id,name}:\n  1,Alice,extra");
+})->throws(ToonDecodeException::class, 'Row has 3 values');
 
 it('throws on invalid escape sequence', function () {
     $decoder = new ToonDecoder;
@@ -340,19 +291,25 @@ it('throws on a lone high surrogate escape', function () {
     $decoder = new ToonDecoder;
 
     $decoder->decode('s: "\uD800"');
-})->throws(ToonDecodeException::class, 'lone surrogate');
+})->throws(ToonDecodeException::class, 'surrogate');
 
 it('throws on a lone low surrogate escape', function () {
     $decoder = new ToonDecoder;
 
     $decoder->decode('s: "\uDC00"');
-})->throws(ToonDecodeException::class, 'lone surrogate');
+})->throws(ToonDecodeException::class, 'surrogate');
 
 it('throws on a high surrogate followed by a non-surrogate escape', function () {
     $decoder = new ToonDecoder;
 
     $decoder->decode('s: "\uD83DA"');
-})->throws(ToonDecodeException::class, 'lone surrogate');
+})->throws(ToonDecodeException::class, 'surrogate');
+
+it('throws on a surrogate pair escape, which must be literal UTF-8', function () {
+    $decoder = new ToonDecoder;
+
+    $decoder->decode('s: "\uD83D\uDE00"');
+})->throws(ToonDecodeException::class, 'surrogate');
 
 it('decodes nested children after trailing whitespace on a key line in lenient mode', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: false));
@@ -370,40 +327,35 @@ it('decodes a quoted root scalar containing a colon', function () {
     expect($result)->toBe('note: hello');
 });
 
-it('throws on unconsumed lines after the document root in strict mode', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(strict: true));
+it('throws on a line indented under a primitive field', function (bool $strict) {
+    $decoder = new ToonDecoder(new DecoderOptions(strict: $strict));
 
     $caught = null;
 
     try {
         $decoder->decode("a: 1\n    b: 2");
-    } catch (ToonStrictModeException $e) {
+    } catch (ToonDecodeException $e) {
         $caught = $e;
     }
 
-    expect($caught)->toBeInstanceOf(ToonStrictModeException::class)
+    expect($caught)->toBeInstanceOf(ToonDecodeException::class)
         ->and($caught->toonLine)->toBe(2);
-});
-
-it('ignores unconsumed lines after the document root in lenient mode', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(strict: false));
-
-    $result = $decoder->decode("a: 1\n    b: 2");
-
-    expect($result)->toBe(['a' => 1]);
-});
+})->with([
+    'strict' => [true],
+    'non-strict' => [false],
+]);
 
 it('throws on duplicate nested object keys in strict mode', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: true));
 
     $decoder->decode("a:\n  b: 1\na:\n  c: 2");
-})->throws(ToonStrictModeException::class, "Duplicate key 'a'");
+})->throws(ToonStrictModeException::class, 'Duplicate key "a"');
 
 it('throws on duplicate array header keys in strict mode', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: true));
 
     $decoder->decode("a[2]: 1,2\na[1]: 3");
-})->throws(ToonStrictModeException::class, "Duplicate key 'a'");
+})->throws(ToonStrictModeException::class, 'Duplicate key "a"');
 
 it('includes a line number in tabular row count mismatch errors', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: true));
@@ -416,8 +368,9 @@ it('includes a line number in tabular row count mismatch errors', function () {
         $caught = $e;
     }
 
+    // Reported on the header, which declares the count.
     expect($caught)->toBeInstanceOf(ToonStrictModeException::class)
-        ->and($caught->toonLine)->toBe(2);
+        ->and($caught->toonLine)->toBe(1);
 });
 
 it('includes a line number in list item count mismatch errors', function () {
@@ -432,29 +385,11 @@ it('includes a line number in list item count mismatch errors', function () {
     }
 
     expect($caught)->toBeInstanceOf(ToonStrictModeException::class)
-        ->and($caught->toonLine)->toBe(2);
+        ->and($caught->toonLine)->toBe(1);
 });
 
-it('decodes a keyed inline tabular header as a list item', function () {
+it('rejects inline values after a field list header', function () {
     $decoder = new ToonDecoder;
 
-    $result = $decoder->decode("items[1]:\n  - k[2]{a,b}: 1,2");
-
-    expect($result)->toBe(['items' => [['k' => [['a' => 1, 'b' => 2]]]]]);
-});
-
-it('does not path-expand quoted dotted keys', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Safe));
-
-    $result = $decoder->decode('"a.b": 1');
-
-    expect($result)->toBe(['a.b' => 1]);
-});
-
-it('expands unquoted dotted keys while keeping quoted ones literal', function () {
-    $decoder = new ToonDecoder(new DecoderOptions(expandPaths: PathExpansion::Safe));
-
-    $result = $decoder->decode("a.b: 1\n\"c.d\": 2");
-
-    expect($result)->toBe(['a' => ['b' => 1], 'c.d' => 2]);
-});
+    $decoder->decode("items[1]:\n  - k[1]{a,b}: 1,2");
+})->throws(ToonDecodeException::class, 'Unexpected content after a field list header');

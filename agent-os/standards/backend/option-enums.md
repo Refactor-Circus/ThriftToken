@@ -3,7 +3,6 @@
 Each option enum is the single source for its config vocabulary AND its behavior.
 
 - **String-backed, value = config token** — backing value is the lowercase config string. Config maps straight in via `::from()`, no parallel lookup table.
-  - `KeyFolding: 'off'|'safe'`, `PathExpansion: 'off'|'safe'|'auto'`
   - Exception: `Delimiter` is backed by the literal character (`',' | "\t" | '|'`) because the value is emitted into TOON; config uses names (`'comma'`, `'tab'`, `'pipe'`) resolved via `fromName()`.
 - **Behavior lives on the enum** — case-varying format logic is a method, not a switch elsewhere.
   ```php

@@ -1,7 +1,5 @@
 <?php
 
-use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
 use RefactorCircus\ThriftToken\ThriftToken;
 
@@ -154,26 +152,6 @@ it('normalizes DateTime to ISO string', function () {
     expect($result)->toBe('created: "2025-01-01T00:00:00+00:00"');
 });
 
-it('encodes with key folding', function () {
-    $encoder = new ToonEncoder(new EncoderOptions(keyFolding: KeyFolding::Safe));
-
-    $result = $encoder->encode([
-        'a' => ['b' => ['c' => 1]],
-    ]);
-
-    expect($result)->toBe('a.b.c: 1');
-});
-
-it('encodes with key folding and inline array', function () {
-    $encoder = new ToonEncoder(new EncoderOptions(keyFolding: KeyFolding::Safe));
-
-    $result = $encoder->encode([
-        'data' => ['meta' => ['items' => ['x', 'y']]],
-    ]);
-
-    expect($result)->toBe('data.meta.items[2]: x,y');
-});
-
 it('does not produce trailing spaces or trailing newline', function () {
     $encoder = new ToonEncoder;
 
@@ -246,28 +224,17 @@ it('produces smaller output with compact preset', function () {
         ]]]],
     ];
 
-    $default = ThriftToken::encode($data);
-    $compact = ThriftToken::compact($data);
-
-    expect(strlen($compact))->toBeLessThan(strlen($default));
-    expect($compact)->toContain('a.b.c.items');
+    expect(strlen(ThriftToken::compact($data)))->toBeLessThan(strlen(ThriftToken::encode($data)));
 });
 
-it('compact uses indent of 1 and key folding', function () {
-    $data = ['parent' => ['child' => 'value']];
-
-    $compact = ThriftToken::compact($data);
-
-    // Key folding collapses single-key chains
-    expect($compact)->toBe('parent.child: value');
+it('compact uses an indent of 1', function () {
+    expect(ThriftToken::compact(['parent' => ['child' => 'value']]))->toBe("parent:\n child: value");
 });
 
 it('smart picks compact for deeply nested data', function () {
-    $data = ['a' => ['b' => ['c' => ['d' => 1]]]];
+    $data = ['a' => ['b' => ['c' => ['d' => ['e' => 1]]]]];
 
-    $result = ThriftToken::smart($data);
-
-    expect($result)->toBe('a.b.c.d: 1');
+    expect(ThriftToken::smart($data))->toBe(ThriftToken::compact($data));
 });
 
 it('smart picks default for flat data', function () {
@@ -324,22 +291,6 @@ it('preserves object key order', function () {
     expect($result)->toBe("z: 1\na: 2\nm: 3");
 });
 
-it('skips folding when the folded key collides with a literal input key', function () {
-    $encoder = new ToonEncoder(new EncoderOptions(keyFolding: KeyFolding::Safe));
-
-    $result = $encoder->encode(['a' => ['b' => 1], 'a.b' => 2]);
-
-    expect($result)->toBe("a:\n  b: 1\n\"a.b\": 2");
-});
-
-it('skips folding when the literal key comes before the foldable chain', function () {
-    $encoder = new ToonEncoder(new EncoderOptions(keyFolding: KeyFolding::Safe));
-
-    $result = $encoder->encode(['a.b' => 2, 'a' => ['b' => 1]]);
-
-    expect($result)->toBe("\"a.b\": 2\na:\n  b: 1");
-});
-
 it('encodes empty inner arrays without a trailing space', function () {
     $encoder = new ToonEncoder;
 
@@ -354,12 +305,4 @@ it('encodes empty and non-empty inner arrays together', function () {
     $result = $encoder->encode(['x' => [[], [1]]]);
 
     expect($result)->toBe("x[2]:\n  - [0]:\n  - [1]: 1");
-});
-
-it('quotes literal dotted keys when key folding is enabled', function () {
-    $encoder = new ToonEncoder(new EncoderOptions(keyFolding: KeyFolding::Safe));
-
-    $result = $encoder->encode(['a.b' => 1]);
-
-    expect($result)->toBe('"a.b": 1');
 });

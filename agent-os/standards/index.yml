@@ -11,8 +11,6 @@ backend:
     description: Core runs without Laravel; optional deps guarded by class_exists, not required
   host-quirk-comments:
     description: Document host-framework lifecycle quirks and failure mode inline so they aren't "fixed"
-  key-folding:
-    description: fold/expand are inverse ops — keep symmetric; \0 markers; strict conflicts throw
   normalize-then-encode:
     description: Encoder normalizes input to primitives in one pass before emitting
   opt-in-flags:
@@ -24,7 +22,7 @@ backend:
   overrides-delegate:
     description: Override classes adapt one host hook then delegate to ThriftToken::encode/smart
   spec-invariants:
-    description: Spec-cited quoting/number/escape rules and named marker constants
+    description: Spec-cited quoting/number/escape/form rules; objects stay objects internally
   stateless-helpers:
     description: Static stateless helpers vs stateful instance classes, config passed per-call
   thin-facade:
@@ -36,6 +34,8 @@ testing:
     description: Dataset ->with() rows use descriptive string keys naming each edge case
   pest-style:
     description: Convention — it() over test()/describe, strict toBe() over toEqual()
+  spec-fixtures:
+    description: The spec's fixture suite is the conformance contract; sync it, never edit it
   roundtrip-contract:
     description: decode(encode(x))===x is the primary check; add a roundtrip case per new type
   unit-vs-feature:

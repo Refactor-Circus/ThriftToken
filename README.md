@@ -1,6 +1,8 @@
 # ThriftToken
 
-A PHP Laravel package for encoding and decoding [TOON (Token-Oriented Object Notation)](https://toonformat.dev) v3.3.
+A PHP Laravel package for encoding and decoding [TOON (Token-Oriented Object Notation)](https://toonformat.dev).
+
+`toon-spec: 4.4` — conformance is checked against every fixture of the [specification's test suite](https://github.com/toon-format/spec/tree/main/tests) (`bin/sync-spec-fixtures.sh` refreshes them).
 
 TOON is a line-oriented, indentation-based text format that encodes the JSON data model with explicit structure and minimal quoting. It is particularly efficient for arrays of uniform objects, reducing token count by 35-58% compared to JSON.
 
@@ -9,7 +11,7 @@ TOON is a line-oriented, indentation-based text format that encodes the JSON dat
 | Document | Description |
 |----------|-------------|
 | [Encoding](docs/encoding.md) | Encoding methods, options, presets, and type normalization |
-| [Decoding](docs/decoding.md) | Decoding method, options, auto-detection, and strict mode |
+| [Decoding](docs/decoding.md) | Decoding method, options, PHP values, and strict mode |
 | [Laravel Integration](docs/laravel-integration.md) | Collection, Builder, and JsonResponse macros, HasToon trait |
 | [AI Integration](docs/ai-integration.md) | Agent middleware, tool trait, MCP response macro, PAO output |
 | [Format Reference](docs/format-reference.md) | TOON format overview with all structure types |
@@ -51,8 +53,8 @@ Three encoding modes are available:
 
 ```php
 ThriftToken::encode($data);          // Standard encoding
-ThriftToken::compact($data);         // Max token savings (1-space indent, key folding)
-ThriftToken::smart($data);           // Auto-selects best encoding
+ThriftToken::compact($data);         // 1-space indentation
+ThriftToken::smart($data);           // Compact for deeply nested data, standard otherwise
 ```
 
 ## Token Savings
@@ -71,15 +73,18 @@ $stats = ThriftToken::savings($data);
 
 ### Typical Savings
 
+Characters saved against minified JSON:
+
 | Data Shape | Default | Compact |
 |------------|---------|---------|
-| Tabular (3 rows) | ~46% | ~47% |
-| Large tabular (10 rows) | ~56% | ~58% |
-| Deeply nested | -8% | ~57% |
-| Mixed (tabular + nested + lists) | ~35% | ~37% |
+| Tabular (3 rows) | ~45% | ~47% |
+| Large tabular (10 rows) | ~55% | ~57% |
+| Keyed objects (5 entries) | ~46% | ~48% |
+| Mixed (tabular + nested + lists) | ~31% | ~34% |
 | Flat object | ~16% | ~16% |
+| Deeply nested, single-key chains | -33% | -5% |
 
-Compact mode makes the biggest difference on deeply nested data due to key folding.
+TOON pays off on uniform rows and objects. Deep chains of single-key objects cost indentation, and are smaller as JSON.
 
 ## Package Layout
 
@@ -87,8 +92,8 @@ Code is grouped into domain modules under `src/Domains/`, namespace `RefactorCir
 
 | Domain | Contents |
 |--------|----------|
-| `Encoding` | `Data\EncoderOptions`, `Enums\Delimiter`, `Enums\KeyFolding`, `Exceptions\ToonEncodeException`, `Support\ToonEncoder` and its helpers |
-| `Decoding` | `Data\DecoderOptions`, `Enums\PathExpansion`, `Exceptions\ToonDecodeException`, `Exceptions\ToonStrictModeException`, `Support\ToonDecoder` and its helpers |
+| `Encoding` | `Data\EncoderOptions`, `Enums\Delimiter`, `Exceptions\ToonEncodeException`, `Support\ToonEncoder` and its helpers |
+| `Decoding` | `Data\DecoderOptions`, `Data\Header`, `Exceptions\ToonDecodeException`, `Exceptions\ToonStrictModeException`, `Support\ToonDecoder` and its helpers |
 | `Integration` | Laravel macros (`IntegrationServiceProvider`), `Concerns\HasToon`, laravel/ai (`Ai\*`) and laravel/pao (`Pao\*`) integrations |
 
 `RefactorCircus\ThriftToken\ThriftToken`, `RefactorCircus\ThriftToken\Facades\ThriftToken`, `RefactorCircus\ThriftToken\ThriftTokenServiceProvider` and the base `RefactorCircus\ThriftToken\Exceptions\ThriftTokenException` stay at the package root. See [CHANGELOG](CHANGELOG.md) for the old to new class map.

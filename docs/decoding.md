@@ -1,6 +1,6 @@
 # Decoding
 
-ThriftToken decodes TOON-formatted strings back into PHP arrays with automatic detection of indent size and key expansion.
+ThriftToken decodes TOON documents back into PHP values, following `toon-spec: 4.4`.
 
 ## Method
 
@@ -9,16 +9,14 @@ ThriftToken decodes TOON-formatted strings back into PHP arrays with automatic d
 ```php
 use RefactorCircus\ThriftToken\ThriftToken;
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
-use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
 
-// Auto-detect everything (default)
 $data = ThriftToken::decode($toon);
 
 // Explicit configuration
 $data = ThriftToken::decode($toon, new DecoderOptions(
     strict: true,
     indentSize: 2,
-    expandPaths: PathExpansion::Off,
+    associative: true,
 ));
 ```
 
@@ -26,35 +24,28 @@ $data = ThriftToken::decode($toon, new DecoderOptions(
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `strict` | `true` | Enforce count mismatches, indentation, escapes, blank lines in arrays |
-| `indentSize` | `null` | Spaces per level. `null` auto-detects from the first indented line |
-| `expandPaths` | `Auto` | `Off`: dotted keys are literal. `Safe`: always expand. `Auto`: expand when dotted keys detected |
+| `strict` | `true` | Error on every malformed input; when `false`, apply only the spec's five recoveries (below) |
+| `indentSize` | `2` | Spaces per indentation level |
+| `associative` | `true` | Decode objects to associative arrays; when `false`, to `stdClass` objects |
 
-## Auto-Detection
+## PHP Values
 
-When `indentSize` is `null` (the default), the decoder examines the first indented line in the input to determine the indent size. This works reliably for any consistent indentation (1, 2, 4 spaces, etc.).
-
-When `expandPaths` is set to `Auto`, the decoder checks whether any key (at any depth, including inside list items) is a dotted path starting with an identifier segment. If one is found, dotted keys are expanded into nested structures:
-
-```php
-$toon = "a.b.c: 1";
-
-// Auto mode (default) — expands because dotted key detected
-ThriftToken::decode($toon);
-// ['a' => ['b' => ['c' => 1]]]
-
-// Off mode — treats dot as literal key character
-ThriftToken::decode($toon, new DecoderOptions(expandPaths: PathExpansion::Off));
-// ['a.b.c' => 1]
-```
+- Objects decode to associative arrays, or `stdClass` objects with `associative: false`. In associative mode, an object whose keys are `"0"`, `"1"`, … is indistinguishable from a list, as with `json_decode()`; use `associative: false` when that matters.
+- Empty objects always decode to `stdClass`, so they stay distinct from empty arrays. An empty document is an empty object.
+- Integers decode to `int`; tokens with a fraction or exponent to `float`. An integer beyond PHP's range decodes to a `float`, and a number beyond the float range to its original string, so no value is silently clamped.
+- Input must be well-formed UTF-8.
+- Comment lines (`# ...`) are dropped.
 
 ## Strict Mode
 
-With `strict: true` (the default), the decoder validates:
+With `strict: true` (the default), every condition in §14 of the spec is an error: count and row-width mismatches, malformed headers and quoted strings, indentation that is not a multiple of `indentSize` or uses tabs, depth jumps, blank lines inside an array, duplicate keys, and trailing content after a root array.
 
-- **Count mismatches** — the declared count in array headers (e.g., `[3]`) must match the actual number of elements
-- **Indentation consistency** — all lines within a block must use the same indent level
-- **Escape sequences** — only valid escape sequences are accepted
-- **Blank lines in arrays** — blank lines within tabular or list arrays are rejected
+With `strict: false`, exactly these five recoveries apply, and everything else is still an error:
 
-Set `strict: false` to relax these checks when working with hand-edited or potentially malformed TOON input.
+1. Declared counts may differ from the actual number of values, items, rows or entries.
+2. Duplicate keys and repeated field names resolve last-write-wins.
+3. Indentation may use tabs (one level each) and any number of spaces.
+4. Blank lines inside arrays are ignored.
+5. A nested scope whose first line is indented deeper than expected takes that depth as its own.
+
+Row and entry-row widths are checked in both modes.

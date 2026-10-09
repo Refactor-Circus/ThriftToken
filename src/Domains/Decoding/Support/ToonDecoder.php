@@ -3,23 +3,30 @@
 namespace RefactorCircus\ThriftToken\Domains\Decoding\Support;
 
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
-use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\Header;
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\HeaderField;
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
 use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
-use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 /**
- * Decodes TOON format strings into PHP data structures.
+ * Decodes TOON documents (spec v4.4) into PHP values.
  *
- * Supports all TOON forms: objects, primitive arrays (inline), tabular arrays,
- * mixed/list arrays, arrays of arrays, and objects as list items.
- * Auto-detects indent size and optionally expands dotted keys.
+ * Objects decode to associative arrays (or stdClass objects when
+ * `associative` is off), arrays to lists, and empty objects to stdClass.
+ * Strict mode errors on every condition of spec §14; non-strict mode applies
+ * exactly the five recoveries of §14.4 and errors on everything else.
  */
 class ToonDecoder
 {
-    /** @var array{text: string, depth: int, num: int, blank: bool}[] */
+    /** @var list<array{num: int, depth: int, content: string, blank: bool}> */
     private array $lines = [];
 
-    private int $pos = 0;
+    private int $position = 0;
+
+    /**
+     * How many header spans (spec §12) enclose the line being read.
+     */
+    private int $spans = 0;
 
     public function __construct(
         private readonly DecoderOptions $options = new DecoderOptions,
@@ -27,740 +34,533 @@ class ToonDecoder
 
     public function decode(string $toon): mixed
     {
-        $this->lines = $this->parseLines($toon);
-        $this->pos = 0;
-
-        if (empty($this->lines)) {
-            // An empty document decodes to an empty object per spec §5 (root forms).
-            return new \stdClass;
+        if (preg_match('//u', $toon) !== 1) {
+            throw new ToonDecodeException('Input is not well-formed UTF-8');
         }
 
-        $result = $this->decodeRoot();
+        $this->lines = $this->prepare($toon);
+        $this->position = 0;
+        $this->spans = 0;
 
-        if ($this->options->strict) {
-            $this->assertAllLinesConsumed();
-        }
-
-        return $this->applyExpansion($result);
+        return DecodedObject::finalize($this->root(), $this->options->associative);
     }
 
     /**
-     * Ensure no non-blank lines remain after the document root has been decoded.
+     * Line preparation, in the order of spec §12.
+     *
+     * @return list<array{num: int, depth: int, content: string, blank: bool}>
      */
-    private function assertAllLinesConsumed(): void
+    private function prepare(string $toon): array
     {
-        for ($i = $this->pos; $i < count($this->lines); $i++) {
-            $line = $this->lines[$i];
-
-            if (! $line['blank']) {
-                throw new ToonStrictModeException('Unexpected content after end of document', $line['num']);
-            }
+        if (str_starts_with($toon, "\u{FEFF}")) {
+            $toon = substr($toon, 3);
         }
+
+        $lines = [];
+
+        foreach (explode("\n", $toon) as $index => $line) {
+            $num = $index + 1;
+
+            if (str_ends_with($line, "\r")) {
+                $line = substr($line, 0, -1);
+            }
+
+            $line = rtrim($line, ' ');
+
+            // Comment lines vanish before anything else sees them (spec §5.1).
+            if (str_starts_with(ltrim($line, ' '), '#')) {
+                continue;
+            }
+
+            $indent = strspn($line, " \t");
+            $content = substr($line, $indent);
+
+            if ($content === '') {
+                if ($line === '' || ! $this->options->strict) {
+                    $lines[] = ['num' => $num, 'depth' => 0, 'content' => '', 'blank' => true];
+
+                    continue;
+                }
+            }
+
+            $lines[] = ['num' => $num, 'depth' => $this->depth(substr($line, 0, $indent), $num), 'content' => $content, 'blank' => false];
+        }
+
+        return $lines;
+    }
+
+    private function depth(string $indentation, int $line): int
+    {
+        $size = $this->options->indentSize;
+        $tabs = substr_count($indentation, "\t");
+        $spaces = strlen($indentation) - $tabs;
+
+        if (! $this->options->strict) {
+            return $tabs + intdiv($spaces, $size);
+        }
+
+        if ($tabs > 0) {
+            throw new ToonStrictModeException('Tabs are not allowed in indentation', $line);
+        }
+
+        if ($spaces % $size !== 0) {
+            throw new ToonStrictModeException("Indentation must be a multiple of $size spaces", $line);
+        }
+
+        return intdiv($spaces, $size);
     }
 
     /**
-     * @return array{text: string, depth: int, num: int, blank: bool}[]
+     * Root form discovery (spec §5).
      */
-    private function parseLines(string $input): array
+    private function root(): mixed
     {
-        $input = str_replace("\r\n", "\n", $input);
-        $input = rtrim($input, "\n");
+        $index = $this->peek();
 
-        if ($input === '') {
-            return [];
+        if ($index === null) {
+            return new DecodedObject($this->options->strict);
         }
 
-        $rawLines = explode("\n", $input);
-        $indent = $this->options->indentSize ?? $this->detectIndent($rawLines);
-        $parsed = [];
+        $line = $this->lines[$index];
 
-        foreach ($rawLines as $i => $line) {
-            $lineNum = $i + 1;
-
-            if (trim($line) === '') {
-                $parsed[] = ['text' => '', 'depth' => 0, 'num' => $lineNum, 'blank' => true];
-
-                continue;
-            }
-
-            if ($this->options->strict) {
-                if (preg_match('/\s+$/', $line)) {
-                    throw new ToonStrictModeException('Trailing spaces are not allowed', $lineNum);
-                }
-
-                if (preg_match("/^\t/", $line)) {
-                    throw new ToonStrictModeException('Tabs are not allowed in indentation', $lineNum);
-                }
-            }
-
-            $stripped = ltrim($line);
-            $spaces = strlen($line) - strlen($stripped);
-
-            if ($this->options->strict && $indent > 0 && $spaces % $indent !== 0) {
-                throw new ToonStrictModeException("Indentation must be an exact multiple of $indent spaces", $lineNum);
-            }
-
-            $depth = $indent > 0 ? intdiv($spaces, $indent) : 0;
-
-            $parsed[] = ['text' => $stripped, 'depth' => $depth, 'num' => $lineNum, 'blank' => false];
+        if ($line['depth'] > 0) {
+            throw new ToonDecodeException('The first line must not be indented', $line['num']);
         }
 
-        return $parsed;
+        if (HeaderParser::isHeader($line['content'])) {
+            $header = HeaderParser::parse($line['content'], $line['num'], $this->options->strict);
+
+            if ($header->key === null) {
+                $this->consume($index);
+
+                return $this->complete($this->headerValue($header, 1, $line['num']));
+            }
+        }
+
+        if ($line['content'] === '[]') {
+            $this->consume($index);
+
+            return $this->complete([]);
+        }
+
+        if ($this->nonBlankCount() === 1 && Scanner::first($line['content'], ':')[':'] === null) {
+            $this->consume($index);
+
+            return ValueDecoder::decode($line['content'], $line['num']);
+        }
+
+        $object = new DecodedObject($this->options->strict);
+        $this->objectBody(0, $object);
+
+        return $object;
     }
 
     /**
-     * @param  string[]  $lines
+     * A root array or keyed object spans the whole document (spec §5).
      */
-    private function detectIndent(array $lines): int
+    private function complete(mixed $value): mixed
     {
-        foreach ($lines as $line) {
-            if ($line === '' || trim($line) === '') {
-                continue;
-            }
+        $index = $this->peek();
 
-            $stripped = ltrim($line);
-            $spaces = strlen($line) - strlen($stripped);
-
-            if ($spaces > 0) {
-                return $spaces;
-            }
+        if ($index !== null) {
+            throw new ToonDecodeException('Unexpected content after the root value', $this->lines[$index]['num']);
         }
 
-        return 2;
+        return $value;
     }
 
-    private function decodeRoot(): mixed
+    /**
+     * Read an object's fields at `$depth` until a shallower line.
+     */
+    private function objectBody(int $depth, DecodedObject $object): void
     {
-        $nonBlank = array_filter($this->lines, fn (array $l) => ! $l['blank']);
-
-        if (empty($nonBlank)) {
-            // Blank-only document is an empty document → empty object (spec §5).
-            return new \stdClass;
-        }
-
-        $first = reset($nonBlank);
-        $firstText = $first['text'];
-
-        $header = HeaderParser::parse($firstText, $first['num'], $this->options->strict);
-
-        if ($header !== null && $first['depth'] === 0 && $header['key'] === null) {
-            return $this->decodeRootArray($header);
-        }
-
-        if ($header !== null && $first['depth'] === 0) {
-            return $this->decodeObject(0);
-        }
-
-        if ($firstText === '[]' && count(array_values($nonBlank)) === 1) {
-            $this->pos = count($this->lines);
-
-            return [];
-        }
-
-        if ($this->findUnquotedColon($firstText) !== false) {
-            return $this->decodeObject(0);
-        }
-
-        $nonBlankList = array_values($nonBlank);
-
-        if (count($nonBlankList) === 1) {
-            $this->pos = count($this->lines);
-
-            return ValueDecoder::decode($firstText, $first['num']);
-        }
-
-        if ($this->options->strict && count($nonBlankList) >= 2) {
-            $allKv = true;
-
-            foreach ($nonBlankList as $l) {
-                if ($l['depth'] !== 0 || (! str_contains($l['text'], ':') && HeaderParser::parse($l['text'], $l['num'], $this->options->strict) === null)) {
-                    $allKv = false;
-
-                    break;
-                }
-            }
-
-            if (! $allKv) {
-                throw new ToonStrictModeException('Invalid root structure: multiple non-key-value lines at depth 0', $first['num']);
-            }
-        }
-
-        return $this->decodeObject(0);
-    }
-
-    private function decodeRootArray(array $header): array
-    {
-        if ($header['inline'] !== null) {
-            $result = $this->decodeInlineValues($header['inline'], $header['delimiter'], $header['fields'], $header['length'], $this->lines[$this->pos]['num']);
-            $this->pos++;
-
-            return $result;
-        }
-
-        $this->pos++;
-
-        if ($header['fields'] !== null) {
-            return $this->decodeTabularRows($header['fields'], $header['delimiter'], $header['length'], 1);
-        }
-
-        return $this->decodeListItems($header['length'], 1);
-    }
-
-    private function decodeObject(int $depth): array
-    {
-        $result = [];
-
-        while ($this->pos < count($this->lines)) {
-            $line = $this->lines[$this->pos];
-
-            if ($line['blank']) {
-                $this->pos++;
-
-                continue;
-            }
+        while (($index = $this->peek()) !== null) {
+            $line = $this->lines[$index];
 
             if ($line['depth'] < $depth) {
-                break;
+                return;
             }
 
             if ($line['depth'] > $depth) {
-                break;
+                throw new ToonDecodeException('Line is indented deeper than its scope', $line['num']);
             }
 
-            $text = $line['text'];
-            $lineNum = $line['num'];
-
-            $header = HeaderParser::parse($text, $lineNum, $this->options->strict);
-
-            if ($header !== null && $header['key'] !== null) {
-                if ($this->options->strict && array_key_exists($header['key'], $result)) {
-                    throw new ToonStrictModeException("Duplicate key '{$header['key']}'", $lineNum);
-                }
-
-                $this->pos++;
-                $result[$header['key']] = $this->decodeArrayValue($header, $depth);
-
-                continue;
-            }
-
-            $colonPos = $this->findUnquotedColon($text);
-
-            if ($colonPos === false) {
-                if ($this->options->strict) {
-                    throw new ToonStrictModeException('Missing colon after key', $lineNum);
-                }
-
-                $this->pos++;
-
-                continue;
-            }
-
-            $rawKey = trim(substr($text, 0, $colonPos));
-            $afterColon = substr($text, $colonPos + 1);
-
-            $key = $this->decodeKey($rawKey, $lineNum);
-
-            if ($this->options->strict && array_key_exists($key, $result)) {
-                throw new ToonStrictModeException("Duplicate key '$key'", $lineNum);
-            }
-
-            if (trim($afterColon) === '') {
-                $this->pos++;
-                $nextDepthLines = $this->peekNextDepthLines($depth + 1);
-
-                if (empty($nextDepthLines)) {
-                    $result[$key] = new \stdClass;
-                } else {
-                    $result[$key] = $this->decodeObject($depth + 1);
-                }
-
-                continue;
-            }
-
-            $value = ltrim($afterColon);
-
-            if ($value === '[]') {
-                $this->pos++;
-                $result[$key] = [];
-
-                continue;
-            }
-
-            $result[$key] = ValueDecoder::decode($value, $lineNum);
-            $this->pos++;
+            $this->consume($index);
+            $this->field($line['content'], $depth, $object, $line['num']);
         }
-
-        return $result;
     }
 
-    private function decodeArrayValue(array $header, int $parentDepth): array
+    /**
+     * Read one field line standing at `$depth`; any scope it opens has its
+     * content at `$depth + 1`.
+     */
+    private function field(string $content, int $depth, DecodedObject $object, int $num): void
     {
-        if ($header['inline'] !== null) {
-            return $this->decodeInlineValues($header['inline'], $header['delimiter'], $header['fields'], $header['length'], $this->lines[$this->pos - 1]['num']);
-        }
+        if (HeaderParser::isHeader($content)) {
+            $header = HeaderParser::parse($content, $num, $this->options->strict);
 
-        $childDepth = $parentDepth + 1;
-
-        if ($header['fields'] !== null) {
-            return $this->decodeTabularRows($header['fields'], $header['delimiter'], $header['length'], $childDepth);
-        }
-
-        return $this->decodeListItems($header['length'], $childDepth);
-    }
-
-    private function decodeInlineValues(string $inline, Delimiter $delimiter, ?array $fields, int $expectedCount, int $lineNum): array
-    {
-        $parts = HeaderParser::splitDelimited($inline, $delimiter);
-        $values = array_map(fn (string $v) => ValueDecoder::decode(trim($v), $lineNum), $parts);
-
-        if ($this->options->strict && count($values) !== $expectedCount) {
-            throw new ToonStrictModeException("Expected $expectedCount values, but got ".count($values), $lineNum);
-        }
-
-        if ($fields !== null) {
-            $result = [];
-
-            foreach ($fields as $i => $field) {
-                $result[$field] = $values[$i] ?? null;
+            if ($header->key === null) {
+                throw new ToonDecodeException('A keyless header is not valid in an object field position', $num);
             }
 
-            return [$result];
+            $object->set($header->key, $this->headerValue($header, $depth + 1, $num), $num);
+
+            return;
         }
+
+        $colon = Scanner::first($content, ':')[':'];
+
+        if ($colon === null) {
+            throw new ToonDecodeException('Expected a key and a colon', $num);
+        }
+
+        $key = Scanner::key(Scanner::trim(substr($content, 0, $colon)), $num);
+        $rest = Scanner::trim(substr($content, $colon + 1));
+
+        $value = match ($rest) {
+            '' => $this->nestedObject($depth + 1),
+            '[]' => [],
+            default => ValueDecoder::decode($rest, $num),
+        };
+
+        $object->set($key, $value, $num);
+    }
+
+    private function nestedObject(int $depth): DecodedObject
+    {
+        $object = new DecodedObject($this->options->strict);
+        $content = $this->openScope($depth);
+
+        if ($content !== null) {
+            $this->objectBody($content, $object);
+            $this->closeScope($depth, $content);
+        }
+
+        return $object;
+    }
+
+    /**
+     * The value a header opens, with its scope content at `$depth`.
+     */
+    private function headerValue(Header $header, int $depth, int $num): mixed
+    {
+        return match (true) {
+            $header->keyed => $this->keyedRows($header, $depth, $num),
+            $header->fields !== null => $this->tabularRows($header, $depth, $num),
+            $header->inline !== null => $this->inlineValues($header, $num),
+            default => $this->listItems($header, $depth, $num),
+        };
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function inlineValues(Header $header, int $num): array
+    {
+        $values = array_map(
+            fn (string $token): mixed => ValueDecoder::decode(Scanner::trim($token), $num),
+            Scanner::split((string) $header->inline, $header->delimiter->value),
+        );
+
+        $this->assertCount($header, count($values), $num);
 
         return $values;
     }
 
     /**
-     * @return array<int, array<string, mixed>>
+     * @return list<array<array-key, mixed>|DecodedObject>
      */
-    private function decodeTabularRows(array $fields, Delimiter $delimiter, int $expectedCount, int $depth): array
+    private function tabularRows(Header $header, int $depth, int $num): array
     {
         $rows = [];
-        $firstRowLine = null;
+        $content = $this->openScope($depth);
 
-        while ($this->pos < count($this->lines)) {
-            $line = $this->lines[$this->pos];
+        if ($content !== null) {
+            $opened = false;
 
-            if ($line['blank']) {
-                if ($this->options->strict && $firstRowLine !== null) {
-                    throw new ToonStrictModeException('Blank lines are not allowed inside tabular rows', $line['num']);
+            while (($index = $this->peek()) !== null) {
+                $line = $this->lines[$index];
+
+                if ($line['depth'] < $content) {
+                    break;
                 }
 
-                $this->pos++;
+                if ($line['depth'] > $content) {
+                    throw new ToonDecodeException('Line is indented deeper than its scope', $line['num']);
+                }
 
-                continue;
+                // A row unless an unquoted colon comes before the first
+                // unquoted delimiter (spec §9.3).
+                $found = Scanner::first($line['content'], $header->delimiter->value.':');
+                $colon = $found[':'];
+                $delimiter = $found[$header->delimiter->value];
+
+                if ($colon !== null && ($delimiter === null || $colon < $delimiter)) {
+                    break;
+                }
+
+                $this->consume($index);
+                if (! $opened) {
+                    $this->spans++;
+                    $opened = true;
+                }
+                $rows[] = $this->row($header, $line['content'], $line['num']);
             }
 
-            if ($line['depth'] < $depth) {
-                break;
+            if ($opened) {
+                $this->spans--;
             }
 
-            if ($line['depth'] > $depth) {
-                break;
-            }
-
-            $text = $line['text'];
-
-            if ($this->isKeyValueLine($text, $delimiter)) {
-                break;
-            }
-
-            $firstRowLine ??= $line['num'];
-            $parts = HeaderParser::splitDelimited($text, $delimiter);
-            $values = array_map(fn (string $v) => ValueDecoder::decode(trim($v), $line['num']), $parts);
-
-            if ($this->options->strict && count($values) !== count($fields)) {
-                throw new ToonStrictModeException('Expected '.count($fields).' values in row, but got '.count($values), $line['num']);
-            }
-
-            $row = [];
-
-            foreach ($fields as $i => $field) {
-                $row[$field] = $values[$i] ?? null;
-            }
-
-            $rows[] = $row;
-            $this->pos++;
+            $this->closeScope($depth, $content);
         }
 
-        if ($this->options->strict && count($rows) !== $expectedCount) {
-            throw new ToonStrictModeException("Expected $expectedCount tabular rows, but got ".count($rows), $firstRowLine ?? $this->currentLineNumber());
-        }
+        $this->assertCount($header, count($rows), $num);
 
         return $rows;
     }
 
-    private function decodeListItems(int $expectedCount, int $depth): array
+    private function keyedRows(Header $header, int $depth, int $num): DecodedObject
     {
-        $items = [];
-        $firstItemLine = null;
+        $object = new DecodedObject($this->options->strict);
+        $count = 0;
+        $content = $this->openScope($depth);
 
-        while ($this->pos < count($this->lines)) {
-            $line = $this->lines[$this->pos];
+        if ($content !== null) {
+            $opened = false;
 
-            if ($line['blank']) {
-                if ($this->options->strict && $firstItemLine !== null) {
-                    throw new ToonStrictModeException('Blank lines are not allowed inside array items', $line['num']);
+            while (($index = $this->peek()) !== null) {
+                $line = $this->lines[$index];
+
+                if ($line['depth'] < $content) {
+                    break;
                 }
 
-                $this->pos++;
+                if ($line['depth'] > $content) {
+                    throw new ToonDecodeException('Line is indented deeper than its scope', $line['num']);
+                }
 
-                continue;
+                $colon = Scanner::first($line['content'], ':')[':'];
+
+                if ($colon === null) {
+                    throw new ToonDecodeException('Expected an entry key and a colon', $line['num']);
+                }
+
+                $this->consume($index);
+                if (! $opened) {
+                    $this->spans++;
+                    $opened = true;
+                }
+                $count++;
+
+                $key = Scanner::key(Scanner::trim(substr($line['content'], 0, $colon)), $line['num']);
+                $cells = Scanner::trim(substr($line['content'], $colon + 1));
+
+                $object->set($key, $this->row($header, $cells, $line['num']), $line['num']);
             }
 
-            if ($line['depth'] < $depth) {
-                break;
+            if ($opened) {
+                $this->spans--;
             }
 
-            if ($line['depth'] !== $depth) {
-                break;
-            }
-
-            $text = $line['text'];
-
-            if (! str_starts_with($text, '- ') && $text !== '-') {
-                break;
-            }
-
-            $firstItemLine ??= $line['num'];
-
-            if ($text === '-') {
-                // A bare dash is an empty-object list item per spec §10, not an
-                // empty array — this keeps `[{}]` round-tripping.
-                $items[] = new \stdClass;
-                $this->pos++;
-
-                continue;
-            }
-
-            $after = substr($text, 2);
-            $items[] = $this->decodeListItemContent($after, $line['num'], $depth);
+            $this->closeScope($depth, $content);
         }
 
-        if ($this->options->strict && count($items) !== $expectedCount) {
-            throw new ToonStrictModeException("Expected $expectedCount list items, but got ".count($items), $firstItemLine ?? $this->currentLineNumber());
+        $this->assertCount($header, $count, $num);
+
+        return $object;
+    }
+
+    /**
+     * Decode a row or entry row's cells onto the header's field list.
+     */
+    private function row(Header $header, string $cells, int $num): DecodedObject
+    {
+        $tokens = $cells === '' ? [] : Scanner::split($cells, $header->delimiter->value);
+
+        if (count($tokens) !== $header->leafCount()) {
+            throw new ToonDecodeException(sprintf('Row has %d values but the header declares %d fields', count($tokens), $header->leafCount()), $num);
         }
+
+        $values = array_map(fn (string $token): mixed => ValueDecoder::decode(Scanner::trim($token), $num), $tokens);
+        $cursor = 0;
+
+        return $this->materialize((array) $header->fields, $values, $cursor);
+    }
+
+    /**
+     * @param  list<HeaderField>  $fields
+     * @param  list<mixed>  $values
+     */
+    private function materialize(array $fields, array $values, int &$cursor): DecodedObject
+    {
+        // Repeated field names were rejected with the header in strict mode;
+        // here the last one wins (spec §14.4).
+        $object = new DecodedObject(false);
+
+        foreach ($fields as $field) {
+            $object->set($field->name, $field->children === null ? $values[$cursor++] : $this->materialize($field->children, $values, $cursor), null);
+        }
+
+        return $object;
+    }
+
+    /**
+     * @return list<mixed>
+     */
+    private function listItems(Header $header, int $depth, int $num): array
+    {
+        $items = [];
+        $content = $this->openScope($depth);
+
+        if ($content !== null) {
+            $opened = false;
+
+            while (($index = $this->peek()) !== null) {
+                $line = $this->lines[$index];
+
+                if ($line['depth'] < $content) {
+                    break;
+                }
+
+                if ($line['depth'] > $content) {
+                    throw new ToonDecodeException('Line is indented deeper than its scope', $line['num']);
+                }
+
+                if ($line['content'] !== '-' && ! str_starts_with($line['content'], '- ')) {
+                    break;
+                }
+
+                $this->consume($index);
+                if (! $opened) {
+                    $this->spans++;
+                    $opened = true;
+                }
+                $items[] = $this->listItem($line['content'], $content, $line['num']);
+            }
+
+            if ($opened) {
+                $this->spans--;
+            }
+
+            $this->closeScope($depth, $content);
+        }
+
+        $this->assertCount($header, count($items), $num);
 
         return $items;
     }
 
-    private function decodeListItemContent(string $content, int $lineNum, int $depth): mixed
+    /**
+     * Decode a list item whose hyphen stands at `$depth` (spec §9.4, §10).
+     */
+    private function listItem(string $content, int $depth, int $num): mixed
     {
-        $header = HeaderParser::parse($content, $lineNum, $this->options->strict);
+        $rest = ltrim(substr($content, 1), ' ');
 
-        if ($header !== null && $header['key'] === null) {
-            if ($header['inline'] !== null) {
-                $this->pos++;
-
-                return $this->decodeInlineValues($header['inline'], $header['delimiter'], $header['fields'], $header['length'], $lineNum);
-            }
-
-            $this->pos++;
-
-            if ($header['fields'] !== null) {
-                return $this->decodeTabularRows($header['fields'], $header['delimiter'], $header['length'], $depth + 1);
-            }
-
-            return $this->decodeListItems($header['length'], $depth + 1);
+        if ($rest === '') {
+            return new DecodedObject($this->options->strict);
         }
 
-        if ($header !== null) {
-            $this->pos++;
-            $obj = [];
-
-            if ($header['fields'] !== null && $header['inline'] === null) {
-                $obj[$header['key']] = $this->decodeTabularRows($header['fields'], $header['delimiter'], $header['length'], $depth + 2);
-            } elseif ($header['inline'] !== null) {
-                $obj[$header['key']] = $this->decodeInlineValues($header['inline'], $header['delimiter'], $header['fields'], $header['length'], $lineNum);
-            } else {
-                $obj[$header['key']] = $this->decodeListItems($header['length'], $depth + 2);
-            }
-
-            $this->decodeObjectFields($obj, $depth + 1);
-
-            return $obj;
+        if ($rest === '[]') {
+            return [];
         }
 
-        $colonPos = $this->findUnquotedColon($content);
+        if (HeaderParser::isHeader($rest)) {
+            $header = HeaderParser::parse($rest, $num, $this->options->strict);
 
-        if ($colonPos !== false) {
-            $this->pos++;
-            $obj = [];
-            $rawKey = trim(substr($content, 0, $colonPos));
-            $afterColon = substr($content, $colonPos + 1);
-
-            $key = $this->decodeKey($rawKey, $lineNum);
-
-            $value = ltrim($afterColon);
-
-            if ($value === '') {
-                $nextDepthLines = $this->peekNextDepthLines($depth + 2);
-
-                if (empty($nextDepthLines)) {
-                    $obj[$key] = new \stdClass;
-                } else {
-                    $obj[$key] = $this->decodeObject($depth + 2);
-                }
-            } elseif ($value === '[]') {
-                $obj[$key] = [];
-            } else {
-                $obj[$key] = ValueDecoder::decode($value, $lineNum);
-            }
-
-            $this->decodeObjectFields($obj, $depth + 1);
-
-            return $obj;
-        }
-
-        $this->pos++;
-
-        return ValueDecoder::decode($content, $lineNum);
-    }
-
-    private function decodeObjectFields(array &$obj, int $depth): void
-    {
-        while ($this->pos < count($this->lines)) {
-            $line = $this->lines[$this->pos];
-
-            if ($line['blank']) {
-                $this->pos++;
-
-                continue;
-            }
-
-            if ($line['depth'] !== $depth) {
-                break;
-            }
-
-            $text = $line['text'];
-            $lineNum = $line['num'];
-
-            $header = HeaderParser::parse($text, $lineNum, $this->options->strict);
-
-            if ($header !== null && $header['key'] !== null) {
-                $this->pos++;
-                $obj[$header['key']] = $this->decodeArrayValue($header, $depth);
-
-                continue;
-            }
-
-            $colonPos = $this->findUnquotedColon($text);
-
-            if ($colonPos === false) {
-                break;
-            }
-
-            $rawKey = trim(substr($text, 0, $colonPos));
-            $afterColon = substr($text, $colonPos + 1);
-
-            $key = $this->decodeKey($rawKey, $lineNum);
-
-            if (trim($afterColon) === '') {
-                $this->pos++;
-                $nextDepthLines = $this->peekNextDepthLines($depth + 1);
-
-                if (empty($nextDepthLines)) {
-                    $obj[$key] = new \stdClass;
-                } else {
-                    $obj[$key] = $this->decodeObject($depth + 1);
+            // A keyless header is the item itself, standing at the hyphen's
+            // depth; a keyed one is the first field of an object item.
+            if ($header->key === null) {
+                if ($header->fields !== null) {
+                    throw new ToonDecodeException('A keyless header with a field list is only valid at the root', $num);
                 }
 
-                continue;
+                return $this->headerValue($header, $depth + 1, $num);
             }
-
-            $value = ltrim($afterColon);
-
-            if ($value === '[]') {
-                $this->pos++;
-                $obj[$key] = [];
-
-                continue;
-            }
-
-            $obj[$key] = ValueDecoder::decode($value, $lineNum);
-            $this->pos++;
-        }
-    }
-
-    private function isKeyValueLine(string $text, Delimiter $delimiter): bool
-    {
-        $delimPos = $this->findUnquotedChar($text, $delimiter->value);
-        $colonPos = $this->findUnquotedColon($text);
-
-        if ($colonPos === false) {
-            return false;
+        } elseif (Scanner::first($rest, ':')[':'] === null) {
+            return ValueDecoder::decode($rest, $num);
         }
 
-        if ($delimPos === false) {
-            return true;
-        }
+        // An object item's fields stand at depth + 1, the first of them on
+        // the hyphen line.
+        $object = new DecodedObject($this->options->strict);
+        $this->field($rest, $depth + 1, $object, $num);
+        $this->objectBody($depth + 1, $object);
 
-        return $colonPos < $delimPos;
+        return $object;
     }
 
     /**
-     * Decode an object key token, marking quoted dotted keys as literal so
-     * path expansion never splits them into nested paths.
+     * Find where a nested scope expecting content at `$depth` actually has
+     * it: null when the scope is empty, `$depth` normally, or a deeper depth
+     * under the non-strict depth-jump recovery (spec §8, §14.4).
      */
-    private function decodeKey(string $rawKey, int $lineNum): string
+    private function openScope(int $depth): ?int
     {
-        if (! ValueDecoder::isQuoted($rawKey)) {
-            return $rawKey;
+        $index = $this->peek();
+
+        if ($index === null || $this->lines[$index]['depth'] < $depth) {
+            return null;
         }
 
-        $key = ValueDecoder::decodeQuoted($rawKey, $lineNum);
+        $line = $this->lines[$index];
 
-        return str_contains($key, '.') ? PathExpander::LITERAL_KEY_MARKER.$key : $key;
+        if ($line['depth'] > $depth && $this->options->strict) {
+            throw new ToonStrictModeException('Indentation jumps more than one level', $line['num']);
+        }
+
+        return $line['depth'];
     }
 
     /**
-     * Line number at the current parse position, or of the last line when
-     * the position is already past the end of the document.
+     * After a depth-jumped scope, a line between the expected and the actual
+     * content depth fits neither (spec §14.4).
      */
-    private function currentLineNumber(): ?int
+    private function closeScope(int $expected, int $actual): void
     {
-        if (isset($this->lines[$this->pos])) {
-            return $this->lines[$this->pos]['num'];
+        $index = $this->peek();
+
+        if ($actual > $expected && $index !== null && $this->lines[$index]['depth'] >= $expected) {
+            throw new ToonDecodeException('Line is shallower than its scope\'s content', $this->lines[$index]['num']);
         }
-
-        $last = end($this->lines);
-
-        return $last === false ? null : $last['num'];
     }
 
-    private function findUnquotedColon(string $text): int|false
+    private function assertCount(Header $header, int $actual, int $num): void
     {
-        return $this->findUnquotedChar($text, ':');
-    }
-
-    private function findUnquotedChar(string $text, string $char): int|false
-    {
-        $inQuotes = false;
-        $len = strlen($text);
-
-        for ($i = 0; $i < $len; $i++) {
-            $ch = $text[$i];
-
-            if ($ch === '"') {
-                $inQuotes = ! $inQuotes;
-
-                continue;
-            }
-
-            if ($inQuotes) {
-                if ($ch === '\\' && $i + 1 < $len) {
-                    $i++;
-                }
-
-                continue;
-            }
-
-            if ($ch === $char) {
-                return $i;
-            }
+        if ($this->options->strict && $actual !== $header->length) {
+            throw new ToonStrictModeException("Expected {$header->length} items but found $actual", $num);
         }
-
-        return false;
     }
 
     /**
-     * @return array{text: string, depth: int, num: int, blank: bool}[]
+     * The index of the next non-blank line, or null at the end.
      */
-    private function peekNextDepthLines(int $depth): array
+    private function peek(): ?int
     {
-        $result = [];
-
-        for ($i = $this->pos; $i < count($this->lines); $i++) {
-            $line = $this->lines[$i];
-
-            if ($line['blank']) {
-                continue;
-            }
-
-            if ($line['depth'] === $depth) {
-                $result[] = $line;
-            } else {
-                break;
+        for ($index = $this->position; $index < count($this->lines); $index++) {
+            if (! $this->lines[$index]['blank']) {
+                return $index;
             }
         }
 
-        return $result;
-    }
-
-    private function applyExpansion(mixed $result): mixed
-    {
-        $mode = $this->options->expandPaths;
-
-        if ($mode === PathExpansion::Off) {
-            return $this->stripLiteralKeyMarkers($result);
-        }
-
-        if ($mode === PathExpansion::Auto && ! $this->hasDottedKeys($result)) {
-            return $this->stripLiteralKeyMarkers($result);
-        }
-
-        $expander = new PathExpander($this->options->strict);
-
-        return $expander->expand($result);
+        return null;
     }
 
     /**
-     * Remove literal-key markers from quoted dotted keys when no path
-     * expansion runs (the expander strips them itself).
+     * Take the line at `$index` into the current scope. Skipping a blank line
+     * to reach it errors inside a header span (spec §12).
      */
-    private function stripLiteralKeyMarkers(mixed $data): mixed
+    private function consume(int $index): void
     {
-        if (! is_array($data)) {
-            return $data;
+        if ($this->spans > 0 && $index > $this->position && $this->options->strict) {
+            throw new ToonStrictModeException('Blank lines are not allowed inside an array', $this->lines[$this->position]['num']);
         }
 
-        if (array_is_list($data)) {
-            return array_map(fn (mixed $v) => $this->stripLiteralKeyMarkers($v), $data);
-        }
-
-        $result = [];
-
-        foreach ($data as $key => $value) {
-            $key = (string) $key;
-
-            if (str_starts_with($key, PathExpander::LITERAL_KEY_MARKER)) {
-                $key = substr($key, strlen(PathExpander::LITERAL_KEY_MARKER));
-            }
-
-            $result[$key] = $this->stripLiteralKeyMarkers($value);
-        }
-
-        return $result;
+        $this->position = $index + 1;
     }
 
-    private function hasDottedKeys(mixed $data): bool
+    private function nonBlankCount(): int
     {
-        if (! is_array($data)) {
-            return false;
-        }
-
-        // Recurse through lists too: a dotted key can live inside a list-item
-        // object, and Auto expansion must still trigger for it.
-        if (array_is_list($data)) {
-            foreach ($data as $value) {
-                if ($this->hasDottedKeys($value)) {
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        foreach ($data as $key => $value) {
-            if (str_contains((string) $key, '.') && preg_match('/^[A-Za-z_][A-Za-z0-9_]*\./', (string) $key)) {
-                return true;
-            }
-
-            if ($this->hasDottedKeys($value)) {
-                return true;
-            }
-        }
-
-        return false;
+        return count(array_filter($this->lines, fn (array $line): bool => ! $line['blank']));
     }
 }
