@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Integration\Ai;
+namespace RefactorCircus\ThriftToken\Domains\Integration\Ai;
 
 use Closure;
 use Laravel\Ai\Gateway\StepResult;

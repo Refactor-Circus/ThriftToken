@@ -1,9 +1,9 @@
 <?php
 
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Domains\Encoding\Enums\KeyFolding;
-use JayI\Toon\Domains\Encoding\Support\ToonEncoder;
-use JayI\Toon\Toon;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
+use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
+use RefactorCircus\ThriftToken\Toon;
 
 it('encodes a simple object', function () {
     $encoder = new ToonEncoder;

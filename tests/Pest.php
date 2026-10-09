@@ -1,5 +1,5 @@
 <?php
 
-use JayI\Toon\Tests\TestCase;
+use RefactorCircus\ThriftToken\Tests\TestCase;
 
 uses(TestCase::class)->in('Feature');

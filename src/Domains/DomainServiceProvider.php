@@ -1,9 +1,9 @@
 <?php
 
-namespace JayI\Toon\Domains;
+namespace RefactorCircus\ThriftToken\Domains;
 
 use Illuminate\Support\ServiceProvider;
-use JayI\Toon\Domains\Integration\IntegrationServiceProvider;
+use RefactorCircus\ThriftToken\Domains\Integration\IntegrationServiceProvider;
 
 /**
  * Registers every domain service provider.

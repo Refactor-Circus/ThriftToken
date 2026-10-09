@@ -1,11 +1,11 @@
 <?php
 
 use Illuminate\Http\JsonResponse;
-use JayI\Toon\Domains\DomainServiceProvider;
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Domains\Encoding\Enums\KeyFolding;
-use JayI\Toon\Domains\Integration\IntegrationServiceProvider;
-use JayI\Toon\ToonServiceProvider;
+use RefactorCircus\ThriftToken\Domains\DomainServiceProvider;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
+use RefactorCircus\ThriftToken\Domains\Integration\IntegrationServiceProvider;
+use RefactorCircus\ThriftToken\ToonServiceProvider;
 
 test('it registers the JsonResponse toToon macro', function () {
     expect(JsonResponse::hasMacro('toToon'))->toBeTrue();

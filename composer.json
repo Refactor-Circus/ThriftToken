@@ -1,5 +1,5 @@
 {
-    "name": "jayi/toon",
+    "name": "refactor-circus/thrift-token",
     "description": "TOON (Token-Oriented Object Notation) v3.3 encoder and decoder for Laravel",
     "type": "library",
     "license": "proprietary",
@@ -20,26 +20,26 @@
     },
     "autoload": {
         "psr-4": {
-            "JayI\\Toon\\": "src/"
+            "RefactorCircus\\ThriftToken\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "JayI\\Toon\\Tests\\": "tests/"
+            "RefactorCircus\\ThriftToken\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "JayI\\Toon\\ToonServiceProvider"
+                "RefactorCircus\\ThriftToken\\ToonServiceProvider"
             ],
             "aliases": {
-                "Toon": "JayI\\Toon\\Facades\\Toon"
+                "Toon": "RefactorCircus\\ThriftToken\\Facades\\Toon"
             }
         },
         "pest": {
             "plugins": [
-                "JayI\\Toon\\Domains\\Integration\\Pao\\Plugin"
+                "RefactorCircus\\ThriftToken\\Domains\\Integration\\Pao\\Plugin"
             ]
         }
     },

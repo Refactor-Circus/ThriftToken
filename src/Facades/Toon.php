@@ -1,10 +1,10 @@
 <?php
 
-namespace JayI\Toon\Facades;
+namespace RefactorCircus\ThriftToken\Facades;
 
 use Illuminate\Support\Facades\Facade;
-use JayI\Toon\Domains\Decoding\Data\DecoderOptions;
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 
 /**
  * @method static string encode(mixed $data, ?EncoderOptions $options = null) Encode data to TOON format.
@@ -13,12 +13,12 @@ use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
  * @method static mixed decode(string $toon, ?DecoderOptions $options = null) Decode a TOON string to PHP data.
  * @method static array savings(mixed $data, ?EncoderOptions $options = null) Estimate token savings vs JSON.
  *
- * @see \JayI\Toon\Toon
+ * @see \RefactorCircus\ThriftToken\Toon
  */
 class Toon extends Facade
 {
     protected static function getFacadeAccessor(): string
     {
-        return \JayI\Toon\Toon::class;
+        return \RefactorCircus\ThriftToken\Toon::class;
     }
 }

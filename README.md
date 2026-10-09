@@ -20,7 +20,7 @@ TOON is a line-oriented, indentation-based text format that encodes the JSON dat
 The package is included via Composer path repository:
 
 ```bash
-composer require jayi/toon
+composer require refactor-circus/thrift-token
 ```
 
 The service provider and facade are auto-discovered.
@@ -28,7 +28,7 @@ The service provider and facade are auto-discovered.
 ## Quick Start
 
 ```php
-use JayI\Toon\Toon;
+use RefactorCircus\ThriftToken\Toon;
 
 // Encode
 $toon = Toon::encode([
@@ -83,7 +83,7 @@ Compact mode makes the biggest difference on deeply nested data due to key foldi
 
 ## Package Layout
 
-Code is grouped into domain modules under `src/Domains/`, namespace `JayI\Toon\Domains\{Domain}`:
+Code is grouped into domain modules under `src/Domains/`, namespace `RefactorCircus\ThriftToken\Domains\{Domain}`:
 
 | Domain | Contents |
 |--------|----------|
@@ -91,7 +91,7 @@ Code is grouped into domain modules under `src/Domains/`, namespace `JayI\Toon\D
 | `Decoding` | `Data\DecoderOptions`, `Enums\PathExpansion`, `Exceptions\ToonDecodeException`, `Exceptions\ToonStrictModeException`, `Support\ToonDecoder` and its helpers |
 | `Integration` | Laravel macros (`IntegrationServiceProvider`), `Concerns\HasToon`, laravel/ai (`Ai\*`) and laravel/pao (`Pao\*`) integrations |
 
-`JayI\Toon\Toon`, `JayI\Toon\Facades\Toon`, `JayI\Toon\ToonServiceProvider` and the base `JayI\Toon\Exceptions\ToonException` stay at the package root. See [CHANGELOG](CHANGELOG.md) for the old to new class map.
+`RefactorCircus\ThriftToken\Toon`, `RefactorCircus\ThriftToken\Facades\Toon`, `RefactorCircus\ThriftToken\ToonServiceProvider` and the base `RefactorCircus\ThriftToken\Exceptions\ToonException` stay at the package root. See [CHANGELOG](CHANGELOG.md) for the old to new class map.
 
 ## Testing
 

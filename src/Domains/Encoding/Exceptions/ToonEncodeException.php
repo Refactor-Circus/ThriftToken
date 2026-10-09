@@ -1,8 +1,8 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Exceptions;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Exceptions;
 
-use JayI\Toon\Exceptions\ToonException;
+use RefactorCircus\ThriftToken\Exceptions\ToonException;
 
 /**
  * Thrown when data cannot be encoded to TOON format.

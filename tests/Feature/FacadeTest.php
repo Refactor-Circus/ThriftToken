@@ -1,6 +1,6 @@
 <?php
 
-use JayI\Toon\Facades\Toon;
+use RefactorCircus\ThriftToken\Facades\Toon;
 
 test('it encodes data via facade', function () {
     $result = Toon::encode(['id' => 1, 'name' => 'Ada']);

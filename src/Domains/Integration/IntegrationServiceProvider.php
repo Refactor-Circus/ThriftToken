@@ -1,14 +1,14 @@
 <?php
 
-namespace JayI\Toon\Domains\Integration;
+namespace RefactorCircus\ThriftToken\Domains\Integration;
 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Toon;
 use Laravel\Mcp\Response as McpResponse;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Toon;
 
 /**
  * Registers the TOON macros on Laravel types.

@@ -1,8 +1,8 @@
 <?php
 
-namespace JayI\Toon\Domains\Decoding\Support;
+namespace RefactorCircus\ThriftToken\Domains\Decoding\Support;
 
-use JayI\Toon\Domains\Decoding\Exceptions\ToonDecodeException;
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
 
 /**
  * Decodes individual TOON value tokens to PHP types.

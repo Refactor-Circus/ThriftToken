@@ -1,9 +1,9 @@
 <?php
 
-namespace JayI\Toon\Domains\Integration\Pao;
+namespace RefactorCircus\ThriftToken\Domains\Integration\Pao;
 
-use JayI\Toon\Toon;
 use php_user_filter;
+use RefactorCircus\ThriftToken\Toon;
 
 /**
  * PHP stream filter that intercepts PAO's JSON output and re-encodes it as TOON.

@@ -1,9 +1,9 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Data;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Data;
 
-use JayI\Toon\Domains\Encoding\Enums\Delimiter;
-use JayI\Toon\Domains\Encoding\Enums\KeyFolding;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 
 /**
  * Configuration options for the TOON encoder.

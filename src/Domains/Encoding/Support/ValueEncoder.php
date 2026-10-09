@@ -1,8 +1,8 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Support;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Support;
 
-use JayI\Toon\Domains\Encoding\Enums\Delimiter;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 /**
  * Encodes individual primitive values to TOON format.

@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Support;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Support;
 
 /**
  * Collapses chains of single-key nested objects into dotted-path keys.

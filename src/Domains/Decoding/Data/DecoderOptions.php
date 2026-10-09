@@ -1,8 +1,8 @@
 <?php
 
-namespace JayI\Toon\Domains\Decoding\Data;
+namespace RefactorCircus\ThriftToken\Domains\Decoding\Data;
 
-use JayI\Toon\Domains\Decoding\Enums\PathExpansion;
+use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
 
 /**
  * Configuration options for the TOON decoder.

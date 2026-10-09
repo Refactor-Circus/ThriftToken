@@ -1,8 +1,8 @@
 <?php
 
-namespace JayI\Toon\Domains\Decoding\Exceptions;
+namespace RefactorCircus\ThriftToken\Domains\Decoding\Exceptions;
 
-use JayI\Toon\Exceptions\ToonException;
+use RefactorCircus\ThriftToken\Exceptions\ToonException;
 use Throwable;
 
 /**

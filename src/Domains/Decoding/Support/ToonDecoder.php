@@ -1,11 +1,11 @@
 <?php
 
-namespace JayI\Toon\Domains\Decoding\Support;
+namespace RefactorCircus\ThriftToken\Domains\Decoding\Support;
 
-use JayI\Toon\Domains\Decoding\Data\DecoderOptions;
-use JayI\Toon\Domains\Decoding\Enums\PathExpansion;
-use JayI\Toon\Domains\Decoding\Exceptions\ToonStrictModeException;
-use JayI\Toon\Domains\Encoding\Enums\Delimiter;
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
+use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 /**
  * Decodes TOON format strings into PHP data structures.

@@ -1,34 +1,35 @@
 # Changelog
 
-## Unreleased
+## [Unreleased](https://github.com/Refactor-Circus/ThriftToken/commits/main)
 
 ### Breaking
 
+- Moved to the Refactor Circus organisation: the package is now `refactor-circus/thrift-token` with the PHP namespace `RefactorCircus\ThriftToken` (it was `jayi/toon` and `JayI\Toon`). Update `composer.json` requirements and `use` statements. Old class names are not kept as aliases, so stored values written under them - polymorphic `*_type` columns, audit subjects, Pennant feature names - need updating to the new names.
 The package now uses the domain-module layout (`src/Domains/{Encoding,Decoding,Integration}`). Classes moved without aliases; update imports:
 
 | Old | New |
 |-----|-----|
-| `JayI\Toon\Encoding\EncoderOptions` | `JayI\Toon\Domains\Encoding\Data\EncoderOptions` |
-| `JayI\Toon\Encoding\ToonEncoder` | `JayI\Toon\Domains\Encoding\Support\ToonEncoder` |
-| `JayI\Toon\Encoding\ValueEncoder` | `JayI\Toon\Domains\Encoding\Support\ValueEncoder` |
-| `JayI\Toon\Encoding\KeyFolder` | `JayI\Toon\Domains\Encoding\Support\KeyFolder` |
-| `JayI\Toon\Encoding\NumberEncoder` | `JayI\Toon\Domains\Encoding\Support\NumberEncoder` |
-| `JayI\Toon\Enums\Delimiter` | `JayI\Toon\Domains\Encoding\Enums\Delimiter` |
-| `JayI\Toon\Enums\KeyFolding` | `JayI\Toon\Domains\Encoding\Enums\KeyFolding` |
-| `JayI\Toon\Exceptions\ToonEncodeException` | `JayI\Toon\Domains\Encoding\Exceptions\ToonEncodeException` |
-| `JayI\Toon\Decoding\DecoderOptions` | `JayI\Toon\Domains\Decoding\Data\DecoderOptions` |
-| `JayI\Toon\Decoding\ToonDecoder` | `JayI\Toon\Domains\Decoding\Support\ToonDecoder` |
-| `JayI\Toon\Decoding\ValueDecoder` | `JayI\Toon\Domains\Decoding\Support\ValueDecoder` |
-| `JayI\Toon\Decoding\HeaderParser` | `JayI\Toon\Domains\Decoding\Support\HeaderParser` |
-| `JayI\Toon\Decoding\PathExpander` | `JayI\Toon\Domains\Decoding\Support\PathExpander` |
-| `JayI\Toon\Enums\PathExpansion` | `JayI\Toon\Domains\Decoding\Enums\PathExpansion` |
-| `JayI\Toon\Exceptions\ToonDecodeException` | `JayI\Toon\Domains\Decoding\Exceptions\ToonDecodeException` |
-| `JayI\Toon\Exceptions\ToonStrictModeException` | `JayI\Toon\Domains\Decoding\Exceptions\ToonStrictModeException` |
-| `JayI\Toon\Traits\HasToon` | `JayI\Toon\Domains\Integration\Concerns\HasToon` |
-| `JayI\Toon\Overrides\Laravel\Ai\EncodesToonToolResults` | `JayI\Toon\Domains\Integration\Ai\EncodesToonToolResults` |
-| `JayI\Toon\Overrides\Laravel\Ai\ToonMiddleware` | `JayI\Toon\Domains\Integration\Ai\ToonMiddleware` |
-| `JayI\Toon\Overrides\Laravel\Ai\ToonToolResponse` | `JayI\Toon\Domains\Integration\Ai\ToonToolResponse` |
-| `JayI\Toon\Overrides\Laravel\Pao\Plugin` | `JayI\Toon\Domains\Integration\Pao\Plugin` |
-| `JayI\Toon\Overrides\Laravel\Pao\ToonOutputFilter` | `JayI\Toon\Domains\Integration\Pao\ToonOutputFilter` |
+| `RefactorCircus\ThriftToken\Encoding\EncoderOptions` | `RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions` |
+| `RefactorCircus\ThriftToken\Encoding\ToonEncoder` | `RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder` |
+| `RefactorCircus\ThriftToken\Encoding\ValueEncoder` | `RefactorCircus\ThriftToken\Domains\Encoding\Support\ValueEncoder` |
+| `RefactorCircus\ThriftToken\Encoding\KeyFolder` | `RefactorCircus\ThriftToken\Domains\Encoding\Support\KeyFolder` |
+| `RefactorCircus\ThriftToken\Encoding\NumberEncoder` | `RefactorCircus\ThriftToken\Domains\Encoding\Support\NumberEncoder` |
+| `RefactorCircus\ThriftToken\Enums\Delimiter` | `RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter` |
+| `RefactorCircus\ThriftToken\Enums\KeyFolding` | `RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding` |
+| `RefactorCircus\ThriftToken\Exceptions\ToonEncodeException` | `RefactorCircus\ThriftToken\Domains\Encoding\Exceptions\ToonEncodeException` |
+| `RefactorCircus\ThriftToken\Decoding\DecoderOptions` | `RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions` |
+| `RefactorCircus\ThriftToken\Decoding\ToonDecoder` | `RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder` |
+| `RefactorCircus\ThriftToken\Decoding\ValueDecoder` | `RefactorCircus\ThriftToken\Domains\Decoding\Support\ValueDecoder` |
+| `RefactorCircus\ThriftToken\Decoding\HeaderParser` | `RefactorCircus\ThriftToken\Domains\Decoding\Support\HeaderParser` |
+| `RefactorCircus\ThriftToken\Decoding\PathExpander` | `RefactorCircus\ThriftToken\Domains\Decoding\Support\PathExpander` |
+| `RefactorCircus\ThriftToken\Enums\PathExpansion` | `RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion` |
+| `RefactorCircus\ThriftToken\Exceptions\ToonDecodeException` | `RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException` |
+| `RefactorCircus\ThriftToken\Exceptions\ToonStrictModeException` | `RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException` |
+| `RefactorCircus\ThriftToken\Traits\HasToon` | `RefactorCircus\ThriftToken\Domains\Integration\Concerns\HasToon` |
+| `RefactorCircus\ThriftToken\Overrides\Laravel\Ai\EncodesToonToolResults` | `RefactorCircus\ThriftToken\Domains\Integration\Ai\EncodesToonToolResults` |
+| `RefactorCircus\ThriftToken\Overrides\Laravel\Ai\ToonMiddleware` | `RefactorCircus\ThriftToken\Domains\Integration\Ai\ToonMiddleware` |
+| `RefactorCircus\ThriftToken\Overrides\Laravel\Ai\ToonToolResponse` | `RefactorCircus\ThriftToken\Domains\Integration\Ai\ToonToolResponse` |
+| `RefactorCircus\ThriftToken\Overrides\Laravel\Pao\Plugin` | `RefactorCircus\ThriftToken\Domains\Integration\Pao\Plugin` |
+| `RefactorCircus\ThriftToken\Overrides\Laravel\Pao\ToonOutputFilter` | `RefactorCircus\ThriftToken\Domains\Integration\Pao\ToonOutputFilter` |
 
-The Laravel macros are now registered by `JayI\Toon\Domains\Integration\IntegrationServiceProvider`, which `ToonServiceProvider` registers through `JayI\Toon\Domains\DomainServiceProvider`. `ToonServiceProvider`, `Toon`, the `Toon` facade, `ToonException`, the `toon` config, the `toon-config` publish tag and the macro names are unchanged. The Pest plugin entry in `extra.pest.plugins` now points at `JayI\Toon\Domains\Integration\Pao\Plugin`.
+The Laravel macros are now registered by `RefactorCircus\ThriftToken\Domains\Integration\IntegrationServiceProvider`, which `ToonServiceProvider` registers through `RefactorCircus\ThriftToken\Domains\DomainServiceProvider`. `ToonServiceProvider`, `Toon`, the `Toon` facade, `ToonException`, the `toon` config, the `toon-config` publish tag and the macro names are unchanged. The Pest plugin entry in `extra.pest.plugins` now points at `RefactorCircus\ThriftToken\Domains\Integration\Pao\Plugin`.

@@ -1,6 +1,6 @@
 <?php
 
-use JayI\Toon\Toon;
+use RefactorCircus\ThriftToken\Toon;
 
 it('smart returns default for list array', function () {
     $data = [1, 2, 3];

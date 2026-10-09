@@ -54,9 +54,9 @@ Set via the `TOON_PAO_OUTPUT` environment variable or directly in the config fil
 Config values provide defaults. You can always override per-call by passing an options object:
 
 ```php
-use JayI\Toon\Toon;
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Domains\Encoding\Enums\Delimiter;
+use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 // Uses config defaults
 Toon::encode($data);

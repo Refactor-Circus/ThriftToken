@@ -1,8 +1,8 @@
 <?php
 
-use JayI\Toon\Domains\Integration\Ai\EncodesToonToolResults;
-use JayI\Toon\Domains\Integration\Ai\ToonToolResponse;
 use Laravel\Ai\Tools\Request;
+use RefactorCircus\ThriftToken\Domains\Integration\Ai\EncodesToonToolResults;
+use RefactorCircus\ThriftToken\Domains\Integration\Ai\ToonToolResponse;
 
 it('wraps array results in a ToonToolResponse', function () {
     $tool = new class

@@ -2,10 +2,10 @@
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Collection;
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Domains\Encoding\Enums\KeyFolding;
-use JayI\Toon\Domains\Integration\Concerns\HasToon;
-use JayI\Toon\Toon;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
+use RefactorCircus\ThriftToken\Domains\Integration\Concerns\HasToon;
+use RefactorCircus\ThriftToken\Toon;
 
 beforeEach(function () {
     if (! Collection::hasMacro('toToon')) {

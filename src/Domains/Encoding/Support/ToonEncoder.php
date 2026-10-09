@@ -1,14 +1,14 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Support;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Support;
 
 use BackedEnum;
 use DateTimeInterface;
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Domains\Encoding\Enums\Delimiter;
-use JayI\Toon\Domains\Encoding\Enums\KeyFolding;
-use JayI\Toon\Domains\Encoding\Exceptions\ToonEncodeException;
 use JsonSerializable;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
+use RefactorCircus\ThriftToken\Domains\Encoding\Exceptions\ToonEncodeException;
 use Stringable;
 use Traversable;
 use UnitEnum;

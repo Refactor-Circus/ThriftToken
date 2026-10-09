@@ -1,9 +1,9 @@
 <?php
 
-namespace JayI\Toon\Tests;
+namespace RefactorCircus\ThriftToken\Tests;
 
-use JayI\Toon\ToonServiceProvider;
 use Orchestra\Testbench\TestCase as BaseTestCase;
+use RefactorCircus\ThriftToken\ToonServiceProvider;
 
 abstract class TestCase extends BaseTestCase
 {

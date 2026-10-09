@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Exceptions;
+namespace RefactorCircus\ThriftToken\Exceptions;
 
 use RuntimeException;
 

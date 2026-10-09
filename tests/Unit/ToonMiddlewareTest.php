@@ -1,12 +1,12 @@
 <?php
 
-use JayI\Toon\Domains\Integration\Ai\ToonMiddleware;
 use Laravel\Ai\Gateway\StepResponse;
 use Laravel\Ai\Gateway\StepResult;
 use Laravel\Ai\PendingStep;
 use Laravel\Ai\Responses\Data\FinishReason;
 use Laravel\Ai\Responses\Data\Meta;
 use Laravel\Ai\Responses\Data\TextUsage;
+use RefactorCircus\ThriftToken\Domains\Integration\Ai\ToonMiddleware;
 
 function toonPendingStep(?string $instructions): PendingStep
 {

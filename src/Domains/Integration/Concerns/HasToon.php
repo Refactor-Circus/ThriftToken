@@ -1,9 +1,9 @@
 <?php
 
-namespace JayI\Toon\Domains\Integration\Concerns;
+namespace RefactorCircus\ThriftToken\Domains\Integration\Concerns;
 
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Toon;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Toon;
 
 /**
  * Adds a `toToon()` method to Eloquent models or any class with `toArray()`.

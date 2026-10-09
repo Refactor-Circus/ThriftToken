@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Decoding\Enums;
+namespace RefactorCircus\ThriftToken\Domains\Decoding\Enums;
 
 /**
  * Controls dotted key expansion behavior during decoding.

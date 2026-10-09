@@ -1,2 +1,2 @@
 providers:
-  - JayI\Toon\ToonServiceProvider
+  - RefactorCircus\ThriftToken\ToonServiceProvider

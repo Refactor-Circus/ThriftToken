@@ -1,8 +1,8 @@
 <?php
 
-namespace JayI\Toon\Domains\Decoding\Support;
+namespace RefactorCircus\ThriftToken\Domains\Decoding\Support;
 
-use JayI\Toon\Domains\Decoding\Exceptions\ToonStrictModeException;
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
 
 /**
  * Expands dotted keys into nested object structures with deep merge.

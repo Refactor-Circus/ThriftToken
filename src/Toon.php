@@ -1,15 +1,15 @@
 <?php
 
-namespace JayI\Toon;
+namespace RefactorCircus\ThriftToken;
 
 use Illuminate\Container\Container;
-use JayI\Toon\Domains\Decoding\Data\DecoderOptions;
-use JayI\Toon\Domains\Decoding\Enums\PathExpansion;
-use JayI\Toon\Domains\Decoding\Support\ToonDecoder;
-use JayI\Toon\Domains\Encoding\Data\EncoderOptions;
-use JayI\Toon\Domains\Encoding\Enums\Delimiter;
-use JayI\Toon\Domains\Encoding\Enums\KeyFolding;
-use JayI\Toon\Domains\Encoding\Support\ToonEncoder;
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
+use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
+use RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
+use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
+use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
 
 /**
  * TOON (Token-Oriented Object Notation) encoder and decoder.

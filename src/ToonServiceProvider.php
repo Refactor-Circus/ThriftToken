@@ -1,9 +1,9 @@
 <?php
 
-namespace JayI\Toon;
+namespace RefactorCircus\ThriftToken;
 
 use Illuminate\Support\ServiceProvider;
-use JayI\Toon\Domains\DomainServiceProvider;
+use RefactorCircus\ThriftToken\Domains\DomainServiceProvider;
 
 /**
  * Registers TOON configuration and the package's domains with Laravel.

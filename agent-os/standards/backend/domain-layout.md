@@ -1,6 +1,6 @@
 # Domain Layout
 
-Code is grouped into domain modules under `src/Domains/{Domain}/`, namespace `JayI\Toon\Domains\{Domain}`, mirroring the mono application's domain-module standard:
+Code is grouped into domain modules under `src/Domains/{Domain}/`, namespace `RefactorCircus\ThriftToken\Domains\{Domain}`, mirroring the mono application's domain-module standard:
 
 ```
 src/

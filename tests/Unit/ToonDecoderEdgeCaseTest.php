@@ -1,9 +1,9 @@
 <?php
 
-use JayI\Toon\Domains\Decoding\Data\DecoderOptions;
-use JayI\Toon\Domains\Decoding\Enums\PathExpansion;
-use JayI\Toon\Domains\Decoding\Exceptions\ToonStrictModeException;
-use JayI\Toon\Domains\Decoding\Support\ToonDecoder;
+use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
+use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
+use RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder;
 
 it('decodes blank lines between object keys', function () {
     $decoder = new ToonDecoder(new DecoderOptions(strict: false));

@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Support;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Support;
 
 /**
  * Encodes numbers to TOON canonical decimal form.

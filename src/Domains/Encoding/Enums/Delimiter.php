@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Enums;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Enums;
 
 /**
  * Delimiter used to separate values in TOON arrays and tabular rows.

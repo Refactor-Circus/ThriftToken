@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Encoding\Enums;
+namespace RefactorCircus\ThriftToken\Domains\Encoding\Enums;
 
 /**
  * Controls key folding behavior during encoding.

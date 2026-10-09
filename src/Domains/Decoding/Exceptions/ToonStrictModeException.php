@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Decoding\Exceptions;
+namespace RefactorCircus\ThriftToken\Domains\Decoding\Exceptions;
 
 /**
  * Thrown when strict mode validation fails during decoding.

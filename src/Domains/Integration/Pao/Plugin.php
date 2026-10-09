@@ -1,6 +1,6 @@
 <?php
 
-namespace JayI\Toon\Domains\Integration\Pao;
+namespace RefactorCircus\ThriftToken\Domains\Integration\Pao;
 
 use Illuminate\Container\Container;
 use Laravel\Pao\Execution;
