@@ -4,10 +4,10 @@ Code is grouped into domain modules under `src/Domains/{Domain}/`, namespace `Re
 
 ```
 src/
-├── Toon.php                    # static API / facade target (package-wide)
-├── ToonServiceProvider.php     # config merge + publish tag; registers DomainServiceProvider
-├── Facades/Toon.php
-├── Exceptions/ToonException.php   # base exception shared by every domain
+├── ThriftToken.php                    # static API / facade target (package-wide)
+├── ThriftTokenServiceProvider.php     # config merge + publish tag; registers DomainServiceProvider
+├── Facades/ThriftToken.php
+├── Exceptions/ThriftTokenException.php   # base exception shared by every domain
 └── Domains/
     ├── DomainServiceProvider.php  # private $providers array, registered in a loop
     ├── Encoding/   Data/EncoderOptions  Enums/{Delimiter,KeyFolding}  Exceptions/  Support/{ToonEncoder,ValueEncoder,KeyFolder,NumberEncoder}
@@ -25,4 +25,4 @@ src/
 - `Delimiter` lives in Encoding (it is an encoder option); Decoding reads it from the array header. Cross-domain imports between Encoding and Decoding are fine; neither may import from Integration.
 
 Rules:
-- NEVER import an external-package class into the core (`Toon`, `Domains/Encoding`, `Domains/Decoding`). Only `illuminate/support` is a core dep.
+- NEVER import an external-package class into the core (`ThriftToken`, `Domains/Encoding`, `Domains/Decoding`). Only `illuminate/support` is a core dep.

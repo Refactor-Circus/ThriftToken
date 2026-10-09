@@ -1,4 +1,4 @@
-# Toon
+# ThriftToken
 
 A PHP Laravel package for encoding and decoding [TOON (Token-Oriented Object Notation)](https://toonformat.dev) v3.3.
 
@@ -28,10 +28,10 @@ The service provider and facade are auto-discovered.
 ## Quick Start
 
 ```php
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 
 // Encode
-$toon = Toon::encode([
+$toon = ThriftToken::encode([
     'users' => [
         ['id' => 1, 'name' => 'Alice', 'role' => 'admin'],
         ['id' => 2, 'name' => 'Bob', 'role' => 'user'],
@@ -44,15 +44,15 @@ $toon = Toon::encode([
 //   2,Bob,user
 
 // Decode
-$data = Toon::decode($toon);
+$data = ThriftToken::decode($toon);
 ```
 
 Three encoding modes are available:
 
 ```php
-Toon::encode($data);          // Standard encoding
-Toon::compact($data);         // Max token savings (1-space indent, key folding)
-Toon::smart($data);           // Auto-selects best encoding
+ThriftToken::encode($data);          // Standard encoding
+ThriftToken::compact($data);         // Max token savings (1-space indent, key folding)
+ThriftToken::smart($data);           // Auto-selects best encoding
 ```
 
 ## Token Savings
@@ -60,7 +60,7 @@ Toon::smart($data);           // Auto-selects best encoding
 Estimate how much TOON saves compared to JSON:
 
 ```php
-$stats = Toon::savings($data);
+$stats = ThriftToken::savings($data);
 // [
 //     'json_chars' => 238,
 //     'toon_chars' => 150,
@@ -91,7 +91,7 @@ Code is grouped into domain modules under `src/Domains/`, namespace `RefactorCir
 | `Decoding` | `Data\DecoderOptions`, `Enums\PathExpansion`, `Exceptions\ToonDecodeException`, `Exceptions\ToonStrictModeException`, `Support\ToonDecoder` and its helpers |
 | `Integration` | Laravel macros (`IntegrationServiceProvider`), `Concerns\HasToon`, laravel/ai (`Ai\*`) and laravel/pao (`Pao\*`) integrations |
 
-`RefactorCircus\ThriftToken\Toon`, `RefactorCircus\ThriftToken\Facades\Toon`, `RefactorCircus\ThriftToken\ToonServiceProvider` and the base `RefactorCircus\ThriftToken\Exceptions\ToonException` stay at the package root. See [CHANGELOG](CHANGELOG.md) for the old to new class map.
+`RefactorCircus\ThriftToken\ThriftToken`, `RefactorCircus\ThriftToken\Facades\ThriftToken`, `RefactorCircus\ThriftToken\ThriftTokenServiceProvider` and the base `RefactorCircus\ThriftToken\Exceptions\ThriftTokenException` stay at the package root. See [CHANGELOG](CHANGELOG.md) for the old to new class map.
 
 ## Testing
 

@@ -5,13 +5,13 @@ use Illuminate\Support\Collection;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Integration\Concerns\HasToon;
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 
 beforeEach(function () {
     if (! Collection::hasMacro('toToon')) {
         Collection::macro('toToon', function (?EncoderOptions $options = null): string {
             /** @var Collection $this */
-            return Toon::encode($this->all(), $options);
+            return ThriftToken::encode($this->all(), $options);
         });
     }
 });

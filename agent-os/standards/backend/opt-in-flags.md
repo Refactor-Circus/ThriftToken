@@ -2,15 +2,15 @@
 
 Optional/opt-in behavior resolves in this order:
 
-1. Laravel config key (`toon.pao_output`) — when container + `config` are bound
-2. Env var fallback (`TOON_PAO_OUTPUT`) — when no container (CLI/tooling context)
+1. Laravel config key (`thrift-token.pao_output`) — when container + `config` are bound
+2. Env var fallback (`THRIFT_TOKEN_PAO_OUTPUT`) — when no container (CLI/tooling context)
 3. Always coerce with `filter_var(..., FILTER_VALIDATE_BOOLEAN)` — env/config strings like `"true"` aren't real bools
 
 ```php
 if (class_exists(Container::class)) {
     $c = Container::getInstance();
     if ($c->bound('config')) {
-        return filter_var($c->make('config')->get('toon.pao_output', $this->envFlag()), FILTER_VALIDATE_BOOLEAN);
+        return filter_var($c->make('config')->get('thrift-token.pao_output', $this->envFlag()), FILTER_VALIDATE_BOOLEAN);
     }
 }
 return $this->envFlag();

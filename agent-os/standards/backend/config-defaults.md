@@ -1,6 +1,6 @@
 # Config Feeds Defaults Only
 
-Laravel `config/toon.php` supplies DEFAULT options. Caller-passed options always win.
+Laravel `config/thrift-token.php` supplies DEFAULT options. Caller-passed options always win.
 
 ```php
 new ToonEncoder($options ?? self::defaultEncoderOptions());  // caller intent authoritative

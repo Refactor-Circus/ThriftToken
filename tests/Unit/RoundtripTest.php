@@ -6,7 +6,7 @@ use RefactorCircus\ThriftToken\Domains\Decoding\Support\ToonDecoder;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 
 function roundtrip(mixed $data, ?EncoderOptions $encOpts = null, ?DecoderOptions $decOpts = null): mixed
 {
@@ -228,8 +228,8 @@ it('roundtrips a root scalar containing a colon', function () {
 it('roundtrips a root-level empty object', function () {
     // Spec §5: a root empty object encodes to an empty document, which decodes
     // back to an empty object (not an empty array).
-    expect(Toon::encode(new stdClass))->toBe('');
-    expect(Toon::decode(''))->toEqual(new stdClass);
+    expect(ThriftToken::encode(new stdClass))->toBe('');
+    expect(ThriftToken::decode(''))->toEqual(new stdClass);
 });
 
 it('encodes out-of-range floats in shortest canonical exponent form', function () {

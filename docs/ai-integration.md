@@ -1,6 +1,6 @@
 # AI Integration
 
-Toon provides middleware and traits for integrating with Laravel AI agents and MCP servers, automatically encoding tool results as TOON for reduced token usage.
+ThriftToken provides middleware and traits for integrating with Laravel AI agents and MCP servers, automatically encoding tool results as TOON for reduced token usage.
 
 ## Agent Middleware
 
@@ -46,12 +46,12 @@ class SearchUsers implements Tool
 
 The trait provides a `handle()` method that calls your `run()` method and encodes the result:
 
-- Arrays and objects are wrapped in a `ToonToolResponse` (encoded via `Toon::smart()`)
+- Arrays and objects are wrapped in a `ToonToolResponse` (encoded via `ThriftToken::smart()`)
 - Any other value is cast to a string and returned as-is
 
 ## ToonToolResponse
 
-`ToonToolResponse` is a `Stringable` wrapper that encodes data with `Toon::smart()` when constructed and returns the TOON string when cast to string:
+`ToonToolResponse` is a `Stringable` wrapper that encodes data with `ThriftToken::smart()` when constructed and returns the TOON string when cast to string:
 
 ```php
 use RefactorCircus\ThriftToken\Domains\Integration\Ai\ToonToolResponse;
@@ -70,7 +70,7 @@ use Laravel\Mcp\Response;
 return Response::toon($data);
 
 // Equivalent to:
-// return Response::text(Toon::smart($data));
+// return Response::text(ThriftToken::smart($data));
 ```
 
 This is a drop-in replacement for `Response::json()` with automatic token savings.
@@ -82,15 +82,15 @@ When [PAO](https://github.com/laravel/pao) (`laravel/pao`) is installed, test ou
 Enable via environment variable:
 
 ```bash
-TOON_PAO_OUTPUT=true php artisan test --compact
+THRIFT_TOKEN_PAO_OUTPUT=true php artisan test --compact
 ```
 
 Or add to `.env`:
 
 ```
-TOON_PAO_OUTPUT=true
+THRIFT_TOKEN_PAO_OUTPUT=true
 ```
 
-The config key `toon.pao_output` is also available in the [publishable config](configuration.md).
+The config key `thrift-token.pao_output` is also available in the [publishable config](configuration.md).
 
 This only activates when PAO detects an AI agent is running. Normal test runs are unaffected.

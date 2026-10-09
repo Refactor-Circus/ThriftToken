@@ -31,10 +31,10 @@
     "extra": {
         "laravel": {
             "providers": [
-                "RefactorCircus\\ThriftToken\\ToonServiceProvider"
+                "RefactorCircus\\ThriftToken\\ThriftTokenServiceProvider"
             ],
             "aliases": {
-                "Toon": "RefactorCircus\\ThriftToken\\Facades\\Toon"
+                "ThriftToken": "RefactorCircus\\ThriftToken\\Facades\\ThriftToken"
             }
         },
         "pest": {

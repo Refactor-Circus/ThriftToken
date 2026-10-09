@@ -7,4 +7,4 @@ use RuntimeException;
 /**
  * Base exception for all TOON encoding and decoding errors.
  */
-class ToonException extends RuntimeException {}
+class ThriftTokenException extends RuntimeException {}

@@ -19,12 +19,12 @@ use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
  *
  * @see https://toonformat.dev
  */
-class Toon
+class ThriftToken
 {
     /**
      * Encode data to TOON format.
      *
-     * When no options are given, defaults are read from the `toon` config
+     * When no options are given, defaults are read from the `thrift-token` config
      * inside Laravel and fall back to the package defaults elsewhere.
      */
     public static function encode(mixed $data, ?EncoderOptions $options = null): string
@@ -97,7 +97,7 @@ class Toon
      * Decode a TOON string back to PHP data.
      *
      * Auto-detects indent size and expands dotted keys by default. When no
-     * options are given, defaults are read from the `toon` config inside
+     * options are given, defaults are read from the `thrift-token` config inside
      * Laravel and fall back to the package defaults elsewhere.
      *
      * An empty string decodes to an empty array. Note that a root-level empty
@@ -175,7 +175,7 @@ class Toon
     }
 
     /**
-     * Read the `toon` config array from the Laravel container, or null when
+     * Read the `thrift-token` config array from the Laravel container, or null when
      * running outside a booted Laravel application.
      *
      * @return array<string, mixed>|null
@@ -192,7 +192,7 @@ class Toon
             return null;
         }
 
-        $config = $container->make('config')->get('toon');
+        $config = $container->make('config')->get('thrift-token');
 
         return is_array($config) ? $config : null;
     }

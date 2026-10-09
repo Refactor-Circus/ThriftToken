@@ -1,21 +1,21 @@
 # Decoding
 
-Toon decodes TOON-formatted strings back into PHP arrays with automatic detection of indent size and key expansion.
+ThriftToken decodes TOON-formatted strings back into PHP arrays with automatic detection of indent size and key expansion.
 
 ## Method
 
-### `Toon::decode($toon, $options)`
+### `ThriftToken::decode($toon, $options)`
 
 ```php
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
 use RefactorCircus\ThriftToken\Domains\Decoding\Enums\PathExpansion;
 
 // Auto-detect everything (default)
-$data = Toon::decode($toon);
+$data = ThriftToken::decode($toon);
 
 // Explicit configuration
-$data = Toon::decode($toon, new DecoderOptions(
+$data = ThriftToken::decode($toon, new DecoderOptions(
     strict: true,
     indentSize: 2,
     expandPaths: PathExpansion::Off,
@@ -40,11 +40,11 @@ When `expandPaths` is set to `Auto`, the decoder checks whether any key (at any 
 $toon = "a.b.c: 1";
 
 // Auto mode (default) — expands because dotted key detected
-Toon::decode($toon);
+ThriftToken::decode($toon);
 // ['a' => ['b' => ['c' => 1]]]
 
 // Off mode — treats dot as literal key character
-Toon::decode($toon, new DecoderOptions(expandPaths: PathExpansion::Off));
+ThriftToken::decode($toon, new DecoderOptions(expandPaths: PathExpansion::Off));
 // ['a.b.c' => 1]
 ```
 

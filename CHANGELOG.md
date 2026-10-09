@@ -5,6 +5,7 @@
 ### Breaking
 
 - Moved to the Refactor Circus organisation: the package is now `refactor-circus/thrift-token` with the PHP namespace `RefactorCircus\ThriftToken` (it was `jayi/toon` and `JayI\Toon`). Update `composer.json` requirements and `use` statements. Old class names are not kept as aliases, so stored values written under them - polymorphic `*_type` columns, audit subjects, Pennant feature names - need updating to the new names.
+- Renamed the package's own names from Toon to ThriftToken: the `Toon` class and facade are `ThriftToken` (`ThriftToken::encode()`), `ToonServiceProvider` is `ThriftTokenServiceProvider`, `ToonException` is `ThriftTokenException`, the config is `config/thrift-token.php` with `thrift-token.*` keys and the `thrift-token-config` publish tag, and `TOON_PAO_OUTPUT` is `THRIFT_TOKEN_PAO_OUTPUT`. Names for the TOON format itself stay: `ToonEncoder`, `ToonDecoder`, the `Toon*Exception` format errors, `HasToon`, `ToonMiddleware`, `ToonToolResponse`, and the `toToon()`/`toon()` macros. Republish the config as `config/thrift-token.php`.
 The package now uses the domain-module layout (`src/Domains/{Encoding,Decoding,Integration}`). Classes moved without aliases; update imports:
 
 | Old | New |
@@ -32,4 +33,4 @@ The package now uses the domain-module layout (`src/Domains/{Encoding,Decoding,I
 | `RefactorCircus\ThriftToken\Overrides\Laravel\Pao\Plugin` | `RefactorCircus\ThriftToken\Domains\Integration\Pao\Plugin` |
 | `RefactorCircus\ThriftToken\Overrides\Laravel\Pao\ToonOutputFilter` | `RefactorCircus\ThriftToken\Domains\Integration\Pao\ToonOutputFilter` |
 
-The Laravel macros are now registered by `RefactorCircus\ThriftToken\Domains\Integration\IntegrationServiceProvider`, which `ToonServiceProvider` registers through `RefactorCircus\ThriftToken\Domains\DomainServiceProvider`. `ToonServiceProvider`, `Toon`, the `Toon` facade, `ToonException`, the `toon` config, the `toon-config` publish tag and the macro names are unchanged. The Pest plugin entry in `extra.pest.plugins` now points at `RefactorCircus\ThriftToken\Domains\Integration\Pao\Plugin`.
+The Laravel macros are now registered by `RefactorCircus\ThriftToken\Domains\Integration\IntegrationServiceProvider`, which `ThriftTokenServiceProvider` registers through `RefactorCircus\ThriftToken\Domains\DomainServiceProvider`. The macro names are unchanged. The Pest plugin entry in `extra.pest.plugins` now points at `RefactorCircus\ThriftToken\Domains\Integration\Pao\Plugin`.

@@ -3,7 +3,7 @@
 When an integration works around a host framework's lifecycle/ordering quirk, the WHY + what-breaks-otherwise MUST be a code comment at the workaround. The comment is load-bearing — it stops the next reader from "cleaning up" the deliberate behavior.
 
 Live examples:
-- `Pao\Plugin` intentionally does NOT implement `Terminable` — Pest runs `terminate()` in registration order, which would detach Toon's filter *before* PAO writes its JSON. Filter is left attached; PHP cleans it up at shutdown.
+- `Pao\Plugin` intentionally does NOT implement `Terminable` — Pest runs `terminate()` in registration order, which would detach ThriftToken's filter *before* PAO writes its JSON. Filter is left attached; PHP cleans it up at shutdown.
 - `ToonOutputFilter` targets the `STDOUT` constant because Symfony's ConsoleOutput writes there directly on Unix.
 
 Rules:

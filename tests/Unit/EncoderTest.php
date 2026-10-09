@@ -3,7 +3,7 @@
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Encoding\Support\ToonEncoder;
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 
 it('encodes a simple object', function () {
     $encoder = new ToonEncoder;
@@ -230,7 +230,7 @@ it('estimates token savings', function () {
         ],
     ];
 
-    $result = Toon::savings($data);
+    $result = ThriftToken::savings($data);
 
     expect($result)->toHaveKeys(['json_chars', 'toon_chars', 'saved_chars', 'saved_percent']);
     expect($result['saved_chars'])->toBeGreaterThan(0);
@@ -246,8 +246,8 @@ it('produces smaller output with compact preset', function () {
         ]]]],
     ];
 
-    $default = Toon::encode($data);
-    $compact = Toon::compact($data);
+    $default = ThriftToken::encode($data);
+    $compact = ThriftToken::compact($data);
 
     expect(strlen($compact))->toBeLessThan(strlen($default));
     expect($compact)->toContain('a.b.c.items');
@@ -256,7 +256,7 @@ it('produces smaller output with compact preset', function () {
 it('compact uses indent of 1 and key folding', function () {
     $data = ['parent' => ['child' => 'value']];
 
-    $compact = Toon::compact($data);
+    $compact = ThriftToken::compact($data);
 
     // Key folding collapses single-key chains
     expect($compact)->toBe('parent.child: value');
@@ -265,7 +265,7 @@ it('compact uses indent of 1 and key folding', function () {
 it('smart picks compact for deeply nested data', function () {
     $data = ['a' => ['b' => ['c' => ['d' => 1]]]];
 
-    $result = Toon::smart($data);
+    $result = ThriftToken::smart($data);
 
     expect($result)->toBe('a.b.c.d: 1');
 });
@@ -273,8 +273,8 @@ it('smart picks compact for deeply nested data', function () {
 it('smart picks default for flat data', function () {
     $data = ['id' => 1, 'name' => 'Ada'];
 
-    $smart = Toon::smart($data);
-    $default = Toon::encode($data);
+    $smart = ThriftToken::smart($data);
+    $default = ThriftToken::encode($data);
 
     expect($smart)->toBe($default);
 });

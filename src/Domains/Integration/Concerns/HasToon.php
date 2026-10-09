@@ -3,7 +3,7 @@
 namespace RefactorCircus\ThriftToken\Domains\Integration\Concerns;
 
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 
 /**
  * Adds a `toToon()` method to Eloquent models or any class with `toArray()`.
@@ -14,6 +14,6 @@ trait HasToon
 {
     public function toToon(?EncoderOptions $options = null): string
     {
-        return Toon::encode($this->toArray(), $options);
+        return ThriftToken::encode($this->toArray(), $options);
     }
 }

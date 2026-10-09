@@ -2,9 +2,9 @@
 
 namespace RefactorCircus\ThriftToken\Domains\Encoding\Exceptions;
 
-use RefactorCircus\ThriftToken\Exceptions\ToonException;
+use RefactorCircus\ThriftToken\Exceptions\ThriftTokenException;
 
 /**
  * Thrown when data cannot be encoded to TOON format.
  */
-class ToonEncodeException extends ToonException {}
+class ToonEncodeException extends ThriftTokenException {}

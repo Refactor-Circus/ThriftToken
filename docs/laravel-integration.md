@@ -1,6 +1,6 @@
 # Laravel Integration
 
-Toon registers several macros and provides a model trait for seamless Laravel usage.
+ThriftToken registers several macros and provides a model trait for seamless Laravel usage.
 
 ## Collection Macro
 

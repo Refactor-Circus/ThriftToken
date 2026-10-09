@@ -3,7 +3,7 @@
 namespace RefactorCircus\ThriftToken\Domains\Integration\Pao;
 
 use php_user_filter;
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 
 /**
  * PHP stream filter that intercepts PAO's JSON output and re-encodes it as TOON.
@@ -20,7 +20,7 @@ class ToonOutputFilter extends php_user_filter
             $decoded = json_decode(trim($data), true);
 
             if (is_array($decoded) && isset($decoded['result'])) {
-                $bucket->data = Toon::encode($decoded).PHP_EOL;
+                $bucket->data = ThriftToken::encode($decoded).PHP_EOL;
             }
 
             $consumed += $bucket->datalen;

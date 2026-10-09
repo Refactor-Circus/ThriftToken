@@ -3,14 +3,14 @@
 namespace RefactorCircus\ThriftToken\Tests;
 
 use Orchestra\Testbench\TestCase as BaseTestCase;
-use RefactorCircus\ThriftToken\ToonServiceProvider;
+use RefactorCircus\ThriftToken\ThriftTokenServiceProvider;
 
 abstract class TestCase extends BaseTestCase
 {
     protected function getPackageProviders($app): array
     {
         return [
-            ToonServiceProvider::class,
+            ThriftTokenServiceProvider::class,
         ];
     }
 }

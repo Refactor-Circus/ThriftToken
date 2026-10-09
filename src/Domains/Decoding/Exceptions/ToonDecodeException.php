@@ -2,7 +2,7 @@
 
 namespace RefactorCircus\ThriftToken\Domains\Decoding\Exceptions;
 
-use RefactorCircus\ThriftToken\Exceptions\ToonException;
+use RefactorCircus\ThriftToken\Exceptions\ThriftTokenException;
 use Throwable;
 
 /**
@@ -10,7 +10,7 @@ use Throwable;
  *
  * Includes the line number where the error occurred when available.
  */
-class ToonDecodeException extends ToonException
+class ToonDecodeException extends ThriftTokenException
 {
     public readonly ?int $toonLine;
 

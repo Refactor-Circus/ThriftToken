@@ -11,11 +11,11 @@ use RefactorCircus\ThriftToken\Domains\DomainServiceProvider;
  * The Laravel macros (`Collection::toToon()` and friends) are registered by
  * the Integration domain's provider.
  */
-class ToonServiceProvider extends ServiceProvider
+class ThriftTokenServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/toon.php', 'toon');
+        $this->mergeConfigFrom(__DIR__.'/../config/thrift-token.php', 'thrift-token');
 
         $this->app->register(DomainServiceProvider::class);
     }
@@ -23,7 +23,7 @@ class ToonServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->publishes([
-            __DIR__.'/../config/toon.php' => config_path('toon.php'),
-        ], 'toon-config');
+            __DIR__.'/../config/thrift-token.php' => config_path('thrift-token.php'),
+        ], 'thrift-token-config');
     }
 }

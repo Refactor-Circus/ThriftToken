@@ -1,40 +1,40 @@
 # Encoding
 
-Toon provides three encoding methods and a flexible options object for controlling output.
+ThriftToken provides three encoding methods and a flexible options object for controlling output.
 
 ## Methods
 
-### `Toon::encode($data, $options)`
+### `ThriftToken::encode($data, $options)`
 
 Standard encoding with configurable options.
 
 ```php
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
-$toon = Toon::encode($data);
-$toon = Toon::encode($data, new EncoderOptions(indentSize: 4));
-$toon = Toon::encode($data, new EncoderOptions(delimiter: Delimiter::Pipe));
+$toon = ThriftToken::encode($data);
+$toon = ThriftToken::encode($data, new EncoderOptions(indentSize: 4));
+$toon = ThriftToken::encode($data, new EncoderOptions(delimiter: Delimiter::Pipe));
 ```
 
-### `Toon::compact($data)`
+### `ThriftToken::compact($data)`
 
 Encodes with settings optimized for maximum token savings: 1-space indent and key folding enabled.
 
 ```php
-$toon = Toon::compact([
+$toon = ThriftToken::compact([
     'data' => ['meta' => ['items' => ['x', 'y']]],
 ]);
 // Output: data.meta.items[2]: x,y
 ```
 
-### `Toon::smart($data)`
+### `ThriftToken::smart($data)`
 
 Automatically chooses compact or default encoding based on the data structure. Uses compact when it detects foldable nested chains or deep nesting (depth >= 4); uses default otherwise.
 
 ```php
-$toon = Toon::smart($data); // compact for foldable/deep data, default otherwise
+$toon = ThriftToken::smart($data); // compact for foldable/deep data, default otherwise
 ```
 
 ## Encoder Options
@@ -83,7 +83,7 @@ The encoder automatically normalizes common PHP types before encoding:
 Estimate how much TOON saves compared to JSON:
 
 ```php
-$stats = Toon::savings($data);
+$stats = ThriftToken::savings($data);
 // [
 //     'json_chars' => 238,
 //     'toon_chars' => 150,
@@ -92,5 +92,5 @@ $stats = Toon::savings($data);
 // ]
 
 // Compare with compact encoding
-$stats = Toon::savings($data, EncoderOptions::compact());
+$stats = ThriftToken::savings($data, EncoderOptions::compact());
 ```

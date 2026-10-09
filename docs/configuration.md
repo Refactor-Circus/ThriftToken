@@ -1,19 +1,19 @@
 # Configuration
 
-Toon ships with sensible defaults but every option is configurable via the publishable config file.
+ThriftToken ships with sensible defaults but every option is configurable via the publishable config file.
 
 ## Publishing the Config
 
 ```bash
-php artisan vendor:publish --tag=toon-config
+php artisan vendor:publish --tag=thrift-token-config
 ```
 
-This creates `config/toon.php` in your application.
+This creates `config/thrift-token.php` in your application.
 
 ## Options
 
 ```php
-// config/toon.php
+// config/thrift-token.php
 return [
     'indent_size' => 2,
     'delimiter' => 'comma',
@@ -21,7 +21,7 @@ return [
     'flatten_depth' => INF,
     'strict' => true,
     'expand_paths' => 'auto',
-    'pao_output' => env('TOON_PAO_OUTPUT', false),
+    'pao_output' => env('THRIFT_TOKEN_PAO_OUTPUT', false),
 ];
 ```
 
@@ -47,20 +47,20 @@ return [
 |-----|---------|--------|-------------|
 | `pao_output` | `false` | `true`, `false` | Encode PAO test output as TOON when an AI agent is detected |
 
-Set via the `TOON_PAO_OUTPUT` environment variable or directly in the config file.
+Set via the `THRIFT_TOKEN_PAO_OUTPUT` environment variable or directly in the config file.
 
 ## Runtime Override
 
 Config values provide defaults. You can always override per-call by passing an options object:
 
 ```php
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 // Uses config defaults
-Toon::encode($data);
+ThriftToken::encode($data);
 
 // Overrides delimiter for this call only
-Toon::encode($data, new EncoderOptions(delimiter: Delimiter::Pipe));
+ThriftToken::encode($data, new EncoderOptions(delimiter: Delimiter::Pipe));
 ```

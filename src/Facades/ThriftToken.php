@@ -13,12 +13,12 @@ use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
  * @method static mixed decode(string $toon, ?DecoderOptions $options = null) Decode a TOON string to PHP data.
  * @method static array savings(mixed $data, ?EncoderOptions $options = null) Estimate token savings vs JSON.
  *
- * @see \RefactorCircus\ThriftToken\Toon
+ * @see \RefactorCircus\ThriftToken\ThriftToken
  */
-class Toon extends Facade
+class ThriftToken extends Facade
 {
     protected static function getFacadeAccessor(): string
     {
-        return \RefactorCircus\ThriftToken\Toon::class;
+        return \RefactorCircus\ThriftToken\ThriftToken::class;
     }
 }

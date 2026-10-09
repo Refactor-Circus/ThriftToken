@@ -1,2 +1,2 @@
 providers:
-  - RefactorCircus\ThriftToken\ToonServiceProvider
+  - RefactorCircus\ThriftToken\ThriftTokenServiceProvider

@@ -8,7 +8,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Mcp\Response as McpResponse;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
-use RefactorCircus\ThriftToken\Toon;
+use RefactorCircus\ThriftToken\ThriftToken;
 
 /**
  * Registers the TOON macros on Laravel types.
@@ -25,22 +25,22 @@ class IntegrationServiceProvider extends ServiceProvider
     {
         Collection::macro('toToon', function (?EncoderOptions $options = null): string {
             /** @var Collection $this */
-            return Toon::encode($this->all(), $options);
+            return ThriftToken::encode($this->all(), $options);
         });
 
         Builder::macro('toToon', function (?EncoderOptions $options = null): string {
             /** @var Builder $this */
-            return Toon::encode($this->get()->toArray(), $options);
+            return ThriftToken::encode($this->get()->toArray(), $options);
         });
 
         JsonResponse::macro('toToon', function (?EncoderOptions $options = null): string {
             /** @var JsonResponse $this */
-            return Toon::encode($this->getData(true) ?? [], $options);
+            return ThriftToken::encode($this->getData(true) ?? [], $options);
         });
 
         if (class_exists('\Laravel\Mcp\Response')) {
             McpResponse::macro('toon', function (mixed $content) {
-                return McpResponse::text(Toon::smart($content));
+                return McpResponse::text(ThriftToken::smart($content));
             });
         }
     }

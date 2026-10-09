@@ -5,7 +5,7 @@ use RefactorCircus\ThriftToken\Domains\DomainServiceProvider;
 use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\KeyFolding;
 use RefactorCircus\ThriftToken\Domains\Integration\IntegrationServiceProvider;
-use RefactorCircus\ThriftToken\ToonServiceProvider;
+use RefactorCircus\ThriftToken\ThriftTokenServiceProvider;
 
 test('it registers the JsonResponse toToon macro', function () {
     expect(JsonResponse::hasMacro('toToon'))->toBeTrue();
@@ -53,16 +53,16 @@ test('it encodes null JsonResponse data as empty object', function () {
 });
 
 test('it publishes toon config', function () {
-    $provider = app()->getProvider(ToonServiceProvider::class);
+    $provider = app()->getProvider(ThriftTokenServiceProvider::class);
 
-    $paths = $provider::$publishGroups['toon-config'] ?? [];
+    $paths = $provider::$publishGroups['thrift-token-config'] ?? [];
 
     expect($paths)->not->toBeEmpty();
 });
 
 test('it merges default config', function () {
-    expect(config('toon.indent_size'))->toBe(2)
-        ->and(config('toon.strict'))->toBeTrue();
+    expect(config('thrift-token.indent_size'))->toBe(2)
+        ->and(config('thrift-token.strict'))->toBeTrue();
 });
 
 test('it registers the domain providers', function () {

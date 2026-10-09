@@ -6,7 +6,7 @@ return [
     | Encoder Defaults
     |--------------------------------------------------------------------------
     |
-    | Defaults used by Toon::encode() when no EncoderOptions are passed.
+    | Defaults used by ThriftToken::encode() when no EncoderOptions are passed.
     | Explicit options given by the caller always take precedence.
     |
     | delimiter: "comma", "tab", or "pipe".
@@ -24,7 +24,7 @@ return [
     | Decoder Defaults
     |--------------------------------------------------------------------------
     |
-    | Defaults used by Toon::decode() when no DecoderOptions are passed.
+    | Defaults used by ThriftToken::decode() when no DecoderOptions are passed.
     | Explicit options given by the caller always take precedence.
     |
     | expand_paths: "off", "safe", or "auto".
@@ -41,8 +41,8 @@ return [
     | When enabled, test output from PAO (laravel/pao) will be encoded as
     | TOON instead of JSON. Only takes effect when PAO is installed.
     |
-    | Set the TOON_PAO_OUTPUT environment variable to "true" to enable.
+    | Set the THRIFT_TOKEN_PAO_OUTPUT environment variable to "true" to enable.
     |
     */
-    'pao_output' => env('TOON_PAO_OUTPUT', false),
+    'pao_output' => env('THRIFT_TOKEN_PAO_OUTPUT', false),
 ];
