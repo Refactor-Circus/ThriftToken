@@ -2,6 +2,7 @@
 
 namespace RefactorCircus\ThriftToken\Domains\Decoding\Support;
 
+use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
 use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonStrictModeException;
 use stdClass;
 
@@ -45,6 +46,16 @@ final class DecodedObject
 
             if ($entries === []) {
                 return new stdClass;
+            }
+
+            if (! $associative) {
+                foreach (array_keys($entries) as $key) {
+                    // PHP reads a property name starting with NUL as a mangled
+                    // private one, so a stdClass would silently drop the key.
+                    if (str_starts_with((string) $key, "\0")) {
+                        throw new ToonDecodeException('A key starting with a NUL character cannot be held by a stdClass; decode with associative: true');
+                    }
+                }
             }
 
             return $associative ? $entries : (object) $entries;

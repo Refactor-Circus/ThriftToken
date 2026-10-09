@@ -2,6 +2,7 @@
 
 namespace RefactorCircus\ThriftToken\Domains\Encoding\Data;
 
+use InvalidArgumentException;
 use RefactorCircus\ThriftToken\Domains\Encoding\Enums\Delimiter;
 
 /**
@@ -18,7 +19,11 @@ readonly class EncoderOptions
     public function __construct(
         public int $indentSize = 2,
         public Delimiter $delimiter = Delimiter::Comma,
-    ) {}
+    ) {
+        if ($indentSize < 1) {
+            throw new InvalidArgumentException('indentSize must be at least 1');
+        }
+    }
 
     /**
      * Preset with one space per indentation level.

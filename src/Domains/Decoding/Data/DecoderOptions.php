@@ -2,6 +2,8 @@
 
 namespace RefactorCircus\ThriftToken\Domains\Decoding\Data;
 
+use InvalidArgumentException;
+
 /**
  * Configuration options for the TOON decoder.
  */
@@ -16,5 +18,9 @@ readonly class DecoderOptions
         public bool $strict = true,
         public int $indentSize = 2,
         public bool $associative = true,
-    ) {}
+    ) {
+        if ($indentSize < 1) {
+            throw new InvalidArgumentException('indentSize must be at least 1');
+        }
+    }
 }

@@ -14,7 +14,8 @@
   - `DecoderOptions::$indentSize` defaults to 2, as in the spec, instead of auto-detecting.
   - Strict and non-strict decoding follow spec §14: non-strict mode applies only the five recoveries of §14.4, so row-width mismatches, over-indented lines, lines without a colon and trailing content now error in both modes. Trailing spaces are stripped rather than rejected.
   - Surrogate `\u` escapes are rejected even in pairs; characters above U+FFFF must be literal UTF-8. Control characters other than `\n`, `\r` and `\t` are escaped as lowercase `\u00xx`, and DEL is written literally.
-  - Input must be well-formed UTF-8, and strings passed to the encoder too.
+  - Input must be well-formed UTF-8, and so must strings and keys passed to the encoder. An `indentSize` below 1 throws `InvalidArgumentException`.
+  - Floats are written with PHP's shortest round-trip digits, which fixes an extra digit on some powers of two outside the plain-decimal range.
   - `HeaderParser::parse()` returns a `Header` value object and throws on malformed headers instead of returning null; `ValueEncoder::encode()` takes the document delimiter only.
 
 The package now uses the domain-module layout (`src/Domains/{Encoding,Decoding,Integration}`). Classes moved without aliases; update imports:

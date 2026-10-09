@@ -3,137 +3,85 @@
 namespace RefactorCircus\ThriftToken\Domains\Encoding\Support;
 
 /**
- * Encodes numbers to TOON canonical decimal form.
+ * Encodes numbers in canonical form (spec §2).
  *
- * No scientific notation, no trailing zeros, no leading zeros.
- * NaN and Infinity return null (encoded as `null` by the caller).
+ * Plain decimal with no leading or trailing zeros when the value is 0 or its
+ * magnitude is in [1e-6, 1e21); JSON exponent form with a lowercase `e` and
+ * an explicit sign otherwise. Floats use the fewest significant digits that
+ * round-trip, closest to the value. NaN and infinities return null, which the
+ * caller writes as `null`.
  */
 class NumberEncoder
 {
-    /**
-     * Encode a number to canonical decimal string, or null for NaN/Infinity.
-     */
     public static function encode(int|float $value): ?string
     {
-        if (is_float($value)) {
-            if (is_nan($value) || is_infinite($value)) {
-                return null;
-            }
-
-            if ($value == 0.0) {
-                return '0';
-            }
-
-            return self::formatFloat($value);
+        if (is_int($value)) {
+            return (string) $value;
         }
 
-        return (string) $value;
-    }
+        if (is_nan($value) || is_infinite($value)) {
+            return null;
+        }
 
-    private static function formatFloat(float $value): string
-    {
-        $abs = abs($value);
+        if ($value == 0.0) {
+            return '0';
+        }
+
+        [$digits, $exponent] = self::shortest(abs($value));
         $sign = $value < 0 ? '-' : '';
 
-        if ($abs >= 1e21) {
-            return $sign.self::formatExponent($abs);
+        // $digits holds the significant digits d1d2…dn, and the value is
+        // 0.d1d2…dn × 10^$exponent.
+        if (abs($value) >= 1e-6 && abs($value) < 1e21) {
+            return $sign.self::plain($digits, $exponent);
         }
 
-        if ($abs < 1e-6) {
-            return $sign.self::formatExponent($abs);
-        }
+        $mantissa = strlen($digits) === 1 ? $digits : $digits[0].'.'.substr($digits, 1);
+        $power = $exponent - 1;
 
-        $formatted = self::shortestRoundtrip($abs);
-
-        if (str_contains($formatted, 'E') || str_contains($formatted, 'e')) {
-            return $sign.self::expandScientific($formatted);
-        }
-
-        if (str_contains($formatted, '.')) {
-            $formatted = rtrim(rtrim($formatted, '0'), '.');
-        }
-
-        return $sign.$formatted;
+        return $sign.$mantissa.'e'.($power < 0 ? '-' : '+').abs($power);
     }
 
     /**
-     * Format a float with the fewest significant digits that still parse back
-     * to the exact same value, preserving full IEEE-754 precision.
+     * The shortest round-trip significant digits of a positive float, and its
+     * decimal exponent, from PHP's own shortest conversion (serialize
+     * precision -1).
+     *
+     * @return array{0: string, 1: int}
      */
-    private static function shortestRoundtrip(float $abs): string
+    private static function shortest(float $value): array
     {
-        for ($precision = 1; $precision <= 17; $precision++) {
-            $candidate = sprintf('%.'.$precision.'g', $abs);
+        $previous = ini_set('serialize_precision', '-1');
 
-            if ((float) $candidate === $abs) {
-                return $candidate;
+        try {
+            $repr = var_export($value, true);
+        } finally {
+            if ($previous !== false) {
+                ini_set('serialize_precision', $previous);
             }
         }
 
-        return sprintf('%.17g', $abs);
+        preg_match('/^(\d+)(?:\.(\d+))?(?:E([+-]?\d+))?$/D', $repr, $match);
+
+        $integer = $match[1];
+        $fraction = $match[2] ?? '';
+        $all = ltrim($integer.$fraction, '0');
+        $leadingZeros = strlen($integer.$fraction) - strlen($all);
+        $exponent = strlen($integer) - $leadingZeros + (int) ($match[3] ?? 0);
+
+        return [rtrim($all, '0'), $exponent];
     }
 
-    private static function formatExponent(float $abs): string
+    private static function plain(string $digits, int $exponent): string
     {
-        // §2: outside the canonical range, emit JSON-number exponent form. Use the
-        // fewest mantissa digits that still round-trip (spec: shortest form, no
-        // trailing zeros), then normalize to lowercase e with an explicit sign.
-        $str = self::shortestRoundtripExponent($abs);
-
-        preg_match('/^(\d+)(?:\.(\d+))?[eE]([+-]?\d+)$/', $str, $m);
-
-        if (empty($m)) {
-            return $str;
+        if ($exponent <= 0) {
+            return '0.'.str_repeat('0', -$exponent).$digits;
         }
 
-        $frac = rtrim($m[2], '0');
-        $mantissa = $frac === '' ? $m[1] : $m[1].'.'.$frac;
-        $exp = (int) $m[3];
-        $sign = $exp >= 0 ? '+' : '-';
-
-        return $mantissa.'e'.$sign.abs($exp);
-    }
-
-    private static function shortestRoundtripExponent(float $abs): string
-    {
-        for ($precision = 0; $precision <= 17; $precision++) {
-            $candidate = sprintf('%.'.$precision.'e', $abs);
-
-            if ((float) $candidate === $abs) {
-                return $candidate;
-            }
+        if ($exponent >= strlen($digits)) {
+            return $digits.str_repeat('0', $exponent - strlen($digits));
         }
 
-        return sprintf('%.17e', $abs);
-    }
-
-    private static function expandScientific(string $sci): string
-    {
-        preg_match('/^(-?)(\d+\.?\d*)[eE]([+-]?\d+)$/', $sci, $m);
-
-        if (empty($m)) {
-            return $sci;
-        }
-
-        $negative = $m[1];
-        $digits = str_replace('.', '', $m[2]);
-        $exponent = (int) $m[3];
-        $dotPos = strpos($m[2], '.');
-        $intDigits = $dotPos !== false ? $dotPos : strlen($m[2]);
-        $newDotPos = $intDigits + $exponent;
-
-        if ($newDotPos <= 0) {
-            $result = '0.'.str_repeat('0', -$newDotPos).$digits;
-        } elseif ($newDotPos >= strlen($digits)) {
-            $result = $digits.str_repeat('0', $newDotPos - strlen($digits));
-        } else {
-            $result = substr($digits, 0, $newDotPos).'.'.substr($digits, $newDotPos);
-        }
-
-        if (str_contains($result, '.')) {
-            $result = rtrim(rtrim($result, '0'), '.');
-        }
-
-        return $negative.$result;
+        return substr($digits, 0, $exponent).'.'.substr($digits, $exponent);
     }
 }

@@ -34,6 +34,7 @@ $data = ThriftToken::decode($toon, new DecoderOptions(
 - Empty objects always decode to `stdClass`, so they stay distinct from empty arrays. An empty document is an empty object.
 - Integers decode to `int`; tokens with a fraction or exponent to `float`. An integer beyond PHP's range decodes to a `float`, and a number beyond the float range to its original string, so no value is silently clamped.
 - Input must be well-formed UTF-8.
+- With `associative: false`, a key starting with a NUL character throws, since a `stdClass` cannot hold it; the default associative mode keeps such keys.
 - Comment lines (`# ...`) are dropped.
 
 ## Strict Mode

@@ -73,16 +73,17 @@ $stats = ThriftToken::savings($data);
 
 ### Typical Savings
 
-Characters saved against minified JSON:
+Characters saved against minified JSON, as asserted by `tests/Unit/SavingsTest.php` (the shapes are defined there):
 
 | Data Shape | Default | Compact |
 |------------|---------|---------|
-| Tabular (3 rows) | ~45% | ~47% |
-| Large tabular (10 rows) | ~55% | ~57% |
-| Keyed objects (5 entries) | ~46% | ~48% |
-| Mixed (tabular + nested + lists) | ~31% | ~34% |
-| Flat object | ~16% | ~16% |
-| Deeply nested, single-key chains | -33% | -5% |
+| Tabular (3 rows) | 44.8% | 46.5% |
+| Large tabular (10 rows) | 54.7% | 56.6% |
+| Keyed objects (5 entries) | 45.8% | 47.9% |
+| Nested objects in rows (3 rows) | 52.9% | 54.3% |
+| Mixed (tabular + nested + lists) | 31.1% | 34.4% |
+| Flat object | 16.4% | 16.4% |
+| Deeply nested, single-key chains | -32.5% | -5.3% |
 
 TOON pays off on uniform rows and objects. Deep chains of single-key objects cost indentation, and are smaller as JSON.
 

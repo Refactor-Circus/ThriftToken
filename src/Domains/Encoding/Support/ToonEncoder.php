@@ -377,11 +377,7 @@ class ToonEncoder
         }
 
         if (is_string($value)) {
-            if (preg_match('//u', $value) !== 1) {
-                throw new ToonEncodeException('Strings must be well-formed UTF-8');
-            }
-
-            return $value;
+            return $this->wellFormed($value);
         }
 
         if (is_float($value)) {
@@ -398,13 +394,13 @@ class ToonEncoder
         }
 
         if (is_array($value)) {
-            $normalized = array_map(fn (mixed $item): mixed => $this->normalize($item), $value);
-
-            return array_is_list($normalized) ? $normalized : new ObjectValue($normalized);
+            return array_is_list($value)
+                ? array_map(fn (mixed $item): mixed => $this->normalize($item), $value)
+                : $this->object($value);
         }
 
         if ($value instanceof stdClass) {
-            return new ObjectValue(array_map(fn (mixed $item): mixed => $this->normalize($item), get_object_vars($value)));
+            return $this->object(get_object_vars($value));
         }
 
         if ($value instanceof DateTimeInterface) {
@@ -432,9 +428,35 @@ class ToonEncoder
         }
 
         if (is_object($value)) {
-            return new ObjectValue(array_map(fn (mixed $item): mixed => $this->normalize($item), get_object_vars($value)));
+            return $this->object(get_object_vars($value));
         }
 
         throw new ToonEncodeException('Cannot encode value of type: '.get_debug_type($value));
+    }
+
+    /**
+     * @param  array<array-key, mixed>  $entries
+     */
+    private function object(array $entries): ObjectValue
+    {
+        $normalized = [];
+
+        foreach ($entries as $key => $value) {
+            $normalized[is_string($key) ? $this->wellFormed($key) : $key] = $this->normalize($value);
+        }
+
+        return new ObjectValue($normalized);
+    }
+
+    /**
+     * Strings, keys included, must be Unicode scalar values (spec §3).
+     */
+    private function wellFormed(string $string): string
+    {
+        if (preg_match('//u', $string) !== 1) {
+            throw new ToonEncodeException('Strings and keys must be well-formed UTF-8');
+        }
+
+        return $string;
     }
 }

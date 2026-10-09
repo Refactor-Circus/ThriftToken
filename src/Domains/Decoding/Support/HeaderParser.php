@@ -45,7 +45,8 @@ final class HeaderParser
 
         // No upper bound: a length beyond PHP_INT_MAX still forms a header,
         // whose count is simply never met (spec §6).
-        $length = strlen($match[1]) > 18 ? PHP_INT_MAX : (int) $match[1];
+        $fits = strlen($match[1]) < 19 || (strlen($match[1]) === 19 && strcmp($match[1], (string) PHP_INT_MAX) <= 0);
+        $length = $fits ? (int) $match[1] : PHP_INT_MAX;
         $keyed = $match[2] === ':';
         $delimiter = Delimiter::from(($match[3] ?? '') === '' ? ',' : $match[3]);
         $position = $open + strlen($match[0]);

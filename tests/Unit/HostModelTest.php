@@ -2,6 +2,7 @@
 
 use RefactorCircus\ThriftToken\Domains\Decoding\Data\DecoderOptions;
 use RefactorCircus\ThriftToken\Domains\Decoding\Exceptions\ToonDecodeException;
+use RefactorCircus\ThriftToken\Domains\Encoding\Data\EncoderOptions;
 use RefactorCircus\ThriftToken\Domains\Encoding\Exceptions\ToonEncodeException;
 use RefactorCircus\ThriftToken\ThriftToken;
 
@@ -57,3 +58,35 @@ it('treats dotted keys as literal keys', function () {
 it('drops comment lines when decoding', function () {
     expect(ThriftToken::decode("# users\nname: Ada\n  # nested comment\nrole: admin"))->toBe(['name' => 'Ada', 'role' => 'admin']);
 });
+
+it('keeps a key starting with NUL in associative mode', function () {
+    expect(ThriftToken::decode('"\\u0000a": 1'))->toBe(["\0a" => 1]);
+});
+
+it('refuses a key starting with NUL rather than dropping it from a stdClass', function () {
+    ThriftToken::decode('"\\u0000a": 1', new DecoderOptions(associative: false));
+})->throws(ToonDecodeException::class, 'NUL');
+
+it('rejects keys that are not well-formed UTF-8', function (mixed $data) {
+    ThriftToken::encode($data);
+})->throws(ToonEncodeException::class, 'UTF-8')->with([
+    'array key' => [["\xC3" => 1]],
+    'surrogate in a stdClass key' => [(object) ["\xED\xA0\x80" => 1]],
+    'tabular field name' => [[['x' => 1, "\xFF" => 2], ['x' => 3, "\xFF" => 4]]],
+]);
+
+it('rejects an indent size below one', function (Closure $options) {
+    $options();
+})->throws(InvalidArgumentException::class)->with([
+    'encoder' => [fn () => new EncoderOptions(indentSize: 0)],
+    'decoder' => [fn () => new DecoderOptions(indentSize: 0)],
+]);
+
+it('writes floats with the fewest round-trip digits at power-of-two boundaries', function (float $value, string $expected) {
+    expect(ThriftToken::encode($value))->toBe($expected);
+})->with([
+    '2^-1017' => [2.0 ** -1017, '7.120236347223045e-307'],
+    '2^-140' => [2.0 ** -140, '7.174648137343064e-43'],
+    'smallest subnormal' => [5e-324, '5e-324'],
+    'largest double' => [1.7976931348623157e308, '1.7976931348623157e+308'],
+]);

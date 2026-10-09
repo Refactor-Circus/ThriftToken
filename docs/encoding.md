@@ -78,7 +78,7 @@ The form of each value follows from its shape and position, as the spec requires
 The encoder automatically normalizes common PHP types before encoding:
 
 - Lists stay arrays; associative arrays, `stdClass` and other objects become objects. Pass a `stdClass` to keep keys such as `"0"` and `"1"` an object rather than a list
-- Strings must be well-formed UTF-8; anything else throws `ToonEncodeException`
+- Strings and keys must be well-formed UTF-8; anything else throws `ToonEncodeException`
 
 - `DateTime` / `DateTimeImmutable` / `Carbon` instances are converted to ISO 8601 strings
 - Backed enums are converted to their value
