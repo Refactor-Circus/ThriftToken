@@ -4,19 +4,19 @@
     "type": "library",
     "license": "proprietary",
     "require": {
-        "php": "^8.4",
-        "illuminate/support": "^13.0",
-        "illuminate/container": "^13.0",
-        "illuminate/database": "^13.0",
-        "illuminate/http": "^13.0"
+        "php": "^8.5",
+        "illuminate/support": "^13.35",
+        "illuminate/container": "^13.35",
+        "illuminate/database": "^13.35",
+        "illuminate/http": "^13.35"
     },
     "require-dev": {
-        "orchestra/testbench": "^11.0",
-        "pestphp/pest": "^5.0",
-        "pestphp/pest-plugin-laravel": "^5.0",
-        "laravel/pint": "^1.29",
-        "larastan/larastan": "^3.12",
-        "laravel/ai": "^1.0"
+        "orchestra/testbench": "^11.3",
+        "pestphp/pest": "^5.3.1",
+        "pestphp/pest-plugin-laravel": "^5.0.1",
+        "laravel/pint": "^1.32.1",
+        "larastan/larastan": "^3.13",
+        "laravel/ai": "^1.2"
     },
     "autoload": {
         "psr-4": {

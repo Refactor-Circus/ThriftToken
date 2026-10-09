@@ -47,3 +47,7 @@ The Laravel macros are now registered by `RefactorCircus\ThriftToken\Domains\Int
 
 - `DecoderOptions::$associative`: set it to `false` to decode objects to `stdClass`, keeping keys such as `"0"` distinct from list indexes. The encoder treats every `stdClass` as an object for the same reason.
 - `bin/sync-spec-fixtures.sh` refreshes the vendored specification fixtures in `tests/Fixtures/spec`.
+
+### Changed
+
+- Requires PHP 8.5 or later.
