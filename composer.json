@@ -1,8 +1,15 @@
 {
     "name": "refactor-circus/thrift-token",
-    "description": "TOON (Token-Oriented Object Notation) v3.3 encoder and decoder for Laravel",
+    "description": "TOON (Token-Oriented Object Notation) 4.4 encoder and decoder for Laravel",
     "type": "library",
     "license": "proprietary",
+    "authors": [
+        {
+            "name": "Jay Fletcher",
+            "email": "5743488+jayjfletcher@users.noreply.github.com",
+            "role": "Developer"
+        }
+    ],
     "require": {
         "php": "^8.5",
         "illuminate/support": "^13.35",
