@@ -1,3 +1,7 @@
+<p align="center">
+    <img src="art/icon.png" width="160" alt="ThriftToken icon">
+</p>
+
 # ThriftToken
 
 A PHP Laravel package for encoding and decoding [TOON (Token-Oriented Object Notation)](https://toonformat.dev).
