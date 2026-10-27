@@ -18,12 +18,14 @@
         "illuminate/http": "^13.35"
     },
     "require-dev": {
+        "larastan/larastan": "^3.13",
+        "laravel/ai": "^1.2",
+        "laravel/pint": "^1.32.1",
         "orchestra/testbench": "^11.3",
         "pestphp/pest": "^5.3.1",
         "pestphp/pest-plugin-laravel": "^5.0.1",
-        "laravel/pint": "^1.32.1",
-        "larastan/larastan": "^3.13",
-        "laravel/ai": "^1.2"
+        "refactor-circus/ringside": "dev-main",
+        "refactor-circus/standards": "dev-main"
     },
     "autoload": {
         "psr-4": {
@@ -52,7 +54,8 @@
     },
     "config": {
         "allow-plugins": {
-            "pestphp/pest-plugin": true
+            "pestphp/pest-plugin": true,
+            "refactor-circus/ringside": true
         }
     },
     "scripts": {
@@ -75,5 +78,15 @@
         ]
     },
     "minimum-stability": "dev",
-    "prefer-stable": true
+    "prefer-stable": true,
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/Refactor-Circus/Ringside.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/Refactor-Circus/Standards.git"
+        }
+    ]
 }
